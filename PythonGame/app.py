@@ -8,6 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'Game'))
 from Factions import factions
 
 app = Flask(__name__)
+app.jinja_env.globals.update(enumerate=enumerate)
 
 # Globaali pelitila (yksinkertaistettu, käytä sessioita tuotannossa)
 game_state = {
