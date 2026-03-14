@@ -25,10 +25,17 @@ A multi-language game project featuring implementations in JavaScript, Python, a
 ### JavaScript
 - Run individual files: `node JSGame/AdvancedCombatRules.js`
 - Use the classes and functions as needed in your game logic.
+- Scripts: `cd JSGame && npm run lint`, `npm run test`
 
 ### Python
 - Run individual files: `python PythonGame/GameBoard.py`
-- Import modules in your scripts.
+- Scripts: `cd PythonGame && make lint`, `make test`
+
+## Automation
+
+- **CI/CD**: GitHub Actions runs linting and tests on push/PR (see `.github/workflows/ci.yml`).
+- **Scripts**: Run `./check-all.sh` to lint and test all components.
+- **IDE Extensions**: Install GitLens, Python, ESLint in VS Code for better development experience.
 
 ## Architecture
 
@@ -50,5 +57,6 @@ The project is organized into three language-specific folders for modularity. Ea
 ## Contributing
 
 - Follow coding standards: ESLint for JS, PEP 8 for Python.
-- Write unit tests for new features.
+- Write unit tests for new features (Jest for JS, unittest for Python).
 - Update documentation as needed.
+- Run `./check-all.sh` before committing.

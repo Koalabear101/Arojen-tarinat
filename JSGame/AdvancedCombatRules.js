@@ -13,4 +13,6 @@ function calculateDamage(attacker, defender) {
     return Math.max(0, damage);
 }
 
+module.exports = { calculateDamage };
+
 console.log("Advanced Combat Rules loaded");
