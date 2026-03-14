@@ -23,12 +23,12 @@ A multi-language game project featuring implementations in JavaScript, Python, a
 ## Usage
 
 ### JavaScript
-- Run individual files: `node JSGame/AdvancedCombatRules.js`
-- Use the classes and functions as needed in your game logic.
+- Run the game: `cd JSGame && npm start`
+- Or directly: `node JSGame/main.js`
 - Scripts: `cd JSGame && npm run lint`, `npm run test`
 
 ### Python
-- Run individual files: `python PythonGame/GameBoard.py`
+- Run the game: `cd PythonGame && python main.py`
 - Scripts: `cd PythonGame && make lint`, `make test`
 
 ## Automation

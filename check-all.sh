@@ -15,4 +15,12 @@ cd ../Game
 make lint
 make test
 
+echo "Testing games..."
+cd ../PythonGame
+python main.py <<< "1
+quit"  # Simuloi input
+
+cd ../JSGame
+node main.js
+
 echo "All checks completed."

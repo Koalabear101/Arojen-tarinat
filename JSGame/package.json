@@ -2,8 +2,9 @@
   "name": "jsgame",
   "version": "1.0.0",
   "description": "",
-  "main": "AdvancedCombatRules.js",
+  "main": "main.js",
   "scripts": {
+    "start": "node main.js",
     "lint": "eslint *.js",
     "lint:fix": "eslint *.js --fix",
     "test": "jest",

@@ -36,4 +36,6 @@ class DiplomacySystem {
     }
 }
 
+module.exports = { DiplomacySystem };
+
 console.log("Diplomacy System loaded");

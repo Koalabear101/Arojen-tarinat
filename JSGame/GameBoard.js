@@ -41,4 +41,6 @@ class GameBoard {
     }
 }
 
+module.exports = { GameBoard };
+
 console.log("Game Board initialized");
