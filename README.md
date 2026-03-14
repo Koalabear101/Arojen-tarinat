@@ -22,14 +22,18 @@ A multi-language game project featuring implementations in JavaScript, Python, a
 
 ## Usage
 
+### Python Web Game
+- Run the web game: `cd PythonGame && python app.py`
+- Open browser at http://127.0.0.1:5000/
+- Select faction, play on the visual board.
+
 ### JavaScript
 - Run the game: `cd JSGame && npm start`
 - Or directly: `node JSGame/main.js`
 - Scripts: `cd JSGame && npm run lint`, `npm run test`
 
-### Python
-- Run the game: `cd PythonGame && python main.py`
-- Scripts: `cd PythonGame && make lint`, `make test`
+### Python Console Game
+- Run the console game: `cd PythonGame && python main.py`
 
 ## Automation
 

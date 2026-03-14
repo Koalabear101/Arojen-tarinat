@@ -34,9 +34,8 @@ factions = [
 
 if __name__ == "__main__":
     print("Heimot ja Faktiot")
-    print("Valitse heimosi ja hyödynnä sen ainutlaatuisia erikoisuuksia")
+    print("Valitse heimosi ja hyodynna sen ainutlaatuisia erikoisuuksia")
     for faction in factions:
-        print(f"\n{faction['name']}")
-        print(f"Bonus: {faction['bonus']}")
-        print(f"Aloitusyksiköt: {', '.join(faction['startUnits'])}")</content>
-<parameter name="filePath">/workspaces/Arojen-tarinat/PythonGame/Factions.py
+        print("\n" + faction['name'])
+        print("Bonus: " + faction['bonus'])
+        print("Aloitusyksikot: " + ', '.join(faction['startUnits']))

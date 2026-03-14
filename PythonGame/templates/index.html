@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arojen-tarinat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Arojen-tarinat</h1>
+    <div id="setup" class="container">
+        <h2>Valitse heimosi</h2>
+        <form id="faction-form">
+            {% for i, faction in enumerate(factions) %}
+            <label>
+                <input type="radio" name="faction" value="{{ i }}" required>
+                {{ faction.name }} - {{ faction.bonus }}
+            </label><br>
+            {% endfor %}
+            <button type="submit">Aloita peli</button>
+        </form>
+    </div>
+
+    <div id="game" class="container" style="display: none;">
+        <h2>Peli - Heimo: <span id="player-faction"></span></h2>
+        <div id="board"></div>
+        <div id="controls">
+            <button id="attack-btn">Hyökkää</button>
+            <button id="diplomacy-btn">Diplomatia</button>
+        </div>
+        <div id="messages"></div>
+        <p>Vuoro: <span id="turn">0</span></p>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
