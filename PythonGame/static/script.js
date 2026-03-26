@@ -98,7 +98,7 @@ const factionLobbyProfiles = {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 let boardZoom = 28;
-let selectedHexKey = null;
+let selectedHexCoordKey = null;
 let lastState = null;
 let selectedCardId = null;
 
@@ -136,6 +136,19 @@ function flattenHexes(hexGrid) {
 
 function coordKey(col, row) {
     return `${col},${row}`;
+}
+
+function selectedCoordFromState(data) {
+    const selected = data?.selected_hex;
+    if (!selected) {
+        return null;
+    }
+    const x = Number(selected.x);
+    const y = Number(selected.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+    }
+    return coordKey(x, y);
 }
 
 function offsetNeighbors(col, row) {
@@ -410,6 +423,12 @@ function hideTooltip() {
 
 function renderState(data) {
     lastState = data;
+    const serverSelected = selectedCoordFromState(data);
+    if (serverSelected !== null) {
+        selectedHexCoordKey = serverSelected;
+    } else if (!data?.selected_unit) {
+        selectedHexCoordKey = null;
+    }
     const turnEl = document.getElementById("turn");
     if (turnEl) {
         turnEl.textContent = data.turn;
@@ -504,7 +523,7 @@ function renderHexBoard(data) {
         tileGroup.setAttribute("class", "hex-tile");
         tileGroup.classList.add(`elev-${elevationBand}`);
         tileGroup.dataset.key = key;
-        if (selectedHexKey === key) {
+        if (selectedHexCoordKey === coord) {
             tileGroup.classList.add("selected");
         }
         if (hex.highlight === "attacker") {
@@ -572,7 +591,7 @@ function renderHexBoard(data) {
             }
         }
 
-        if (selectedHexKey === key) {
+        if (selectedHexCoordKey === coord) {
             selectedOverlay = hexPoints(cx, cy, size * 1.045);
         }
 
@@ -632,7 +651,7 @@ function renderHexBoard(data) {
         }
 
         tileGroup.addEventListener("click", () => {
-            selectedHexKey = key;
+            selectedHexCoordKey = coord;
             performAction("hex_click", { x: hex.col, y: hex.row });
         });
         svg.appendChild(tileGroup);

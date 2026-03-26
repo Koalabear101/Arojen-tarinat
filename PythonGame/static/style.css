@@ -214,9 +214,11 @@ h3 {
 .hex-selection-ring {
     fill: none;
     stroke: var(--hex-select);
-    stroke-width: 3.6;
-    filter: drop-shadow(0 0 10px var(--hex-select-glow));
-    opacity: 1;
+    stroke-width: 4.2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 10px var(--hex-select-glow)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.35));
+    opacity: 0.98;
     pointer-events: none;
 }
 
