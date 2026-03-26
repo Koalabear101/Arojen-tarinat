@@ -67,6 +67,10 @@ UNIT_TYPES = {
 BOARD_WIDTH = 20
 BOARD_HEIGHT = 20
 TERRAIN_TYPES = ["water", "shore", "plains", "forest", "mountain", "desert", "river", "lake"]
+SEA_LEVEL = 0.28
+COAST_LEVEL = 0.35
+HILL_LEVEL = 0.56
+MOUNTAIN_LEVEL = 0.78
 
 FACTION_LOADOUTS = {
     "Mongoli-heimo": ["cavalry", "cavalry", "infantry", "chief", "merchant"],              # paimentolaisheimo
@@ -176,13 +180,44 @@ def _within(col, row, width, height):
     return 0 <= col < width and 0 <= row < height
 
 
-def _distance_to_water(height_map, col, row):
+def _clamp(value, low=0.0, high=1.0):
+    return max(low, min(high, value))
+
+
+def _normalize_field(field):
+    low = min(min(row) for row in field)
+    high = max(max(row) for row in field)
+    span = max(0.0001, high - low)
+    return [[(cell - low) / span for cell in row] for row in field]
+
+
+def _smooth_field(field, passes=1):
+    current = [row[:] for row in field]
+    width = len(current[0])
+    height = len(current)
+    for _ in range(max(0, passes)):
+        nxt = [[current[row][col] for col in range(width)] for row in range(height)]
+        for row in range(height):
+            for col in range(width):
+                total = current[row][col] * 2.2
+                weight = 2.2
+                for nc, nr in _axial_neighbors(col, row):
+                    if not _within(nc, nr, width, height):
+                        continue
+                    total += current[nr][nc]
+                    weight += 1.0
+                nxt[row][col] = total / weight
+        current = nxt
+    return current
+
+
+def _distance_to_water(height_map, col, row, sea_level=SEA_LEVEL):
     width = len(height_map[0])
     height = len(height_map)
     best = width + height
     for rr in range(height):
         for cc in range(width):
-            if height_map[rr][cc] <= 0.0:
+            if height_map[rr][cc] <= sea_level:
                 dist = abs(cc - col) + abs(rr - row)
                 if dist < best:
                     best = dist
@@ -213,7 +248,7 @@ def _paint_ellipse(field, cx, cy, rx, ry, delta):
 
 
 def _generate_continents(width, height):
-    height_map = [[_base_height(col, row, width, height) for col in range(width)] for row in range(height)]
+    land_potential = [[_base_height(col, row, width, height) for col in range(width)] for row in range(height)]
 
     # Eurasian "old world" mass: Europe -> Middle East -> Central/East Asia
     old_world_masses = [
@@ -227,28 +262,52 @@ def _generate_continents(width, height):
         (0.72, 0.52, 0.16, 0.16, 0.88),  # South China continuation
     ]
     for cx, cy, rx, ry, delta in old_world_masses:
-        _paint_ellipse(height_map, width * cx, height * cy, width * rx, height * ry, delta)
+        _paint_ellipse(land_potential, width * cx, height * cy, width * rx, height * ry, delta)
 
     # India peninsula + SE Asia
-    _paint_ellipse(height_map, width * 0.76, height * 0.63, width * 0.10, height * 0.14, 0.93)
-    _paint_ellipse(height_map, width * 0.89, height * 0.67, width * 0.10, height * 0.12, 0.80)
+    _paint_ellipse(land_potential, width * 0.76, height * 0.63, width * 0.10, height * 0.14, 0.93)
+    _paint_ellipse(land_potential, width * 0.89, height * 0.67, width * 0.10, height * 0.12, 0.80)
 
     # North Africa rim visible in south-west
-    _paint_ellipse(height_map, width * 0.22, height * 0.60, width * 0.24, height * 0.13, 0.92)
+    _paint_ellipse(land_potential, width * 0.22, height * 0.60, width * 0.24, height * 0.13, 0.92)
 
     # Sea basins: Mediterranean, Arabian Sea, Bay of Bengal, Pacific edge
-    _paint_ellipse(height_map, width * 0.28, height * 0.44, width * 0.11, height * 0.08, -0.78)  # Mediterranean
-    _paint_ellipse(height_map, width * 0.59, height * 0.56, width * 0.10, height * 0.11, -0.68)  # Arabian Sea
-    _paint_ellipse(height_map, width * 0.81, height * 0.58, width * 0.08, height * 0.10, -0.65)  # Bay of Bengal
-    _paint_ellipse(height_map, width * 0.95, height * 0.46, width * 0.10, height * 0.22, -0.92)  # Pacific side
+    _paint_ellipse(land_potential, width * 0.28, height * 0.44, width * 0.11, height * 0.08, -0.78)  # Mediterranean
+    _paint_ellipse(land_potential, width * 0.59, height * 0.56, width * 0.10, height * 0.11, -0.68)  # Arabian Sea
+    _paint_ellipse(land_potential, width * 0.81, height * 0.58, width * 0.08, height * 0.10, -0.65)  # Bay of Bengal
+    _paint_ellipse(land_potential, width * 0.95, height * 0.46, width * 0.10, height * 0.22, -0.92)  # Pacific side
 
     # Carve west/south oceans
     for row in range(height):
         for col in range(width):
             west_ocean = max(0.0, (0.14 - (col / max(1, width - 1))))
             south_ocean = max(0.0, ((row / max(1, height - 1)) - 0.82))
-            height_map[row][col] -= west_ocean * 1.3 + south_ocean * 1.0
-    return height_map
+            coast_detail = (
+                math.sin(col * 0.82 + row * 0.37) * 0.07
+                + math.cos(col * 0.41 - row * 0.63) * 0.05
+                + math.sin((col + row) * 0.53) * 0.03
+            )
+            land_potential[row][col] -= west_ocean * 1.3 + south_ocean * 1.0
+            # Jagged coastlines instead of perfect ellipses.
+            land_potential[row][col] += coast_detail * (0.5 + west_ocean * 0.6 + south_ocean * 0.5)
+
+    land_potential = _normalize_field(land_potential)
+    land_potential = _smooth_field(land_potential, passes=2)
+
+    height_map = [[0.0 for _ in range(width)] for _ in range(height)]
+    for row in range(height):
+        for col in range(width):
+            # Multi-frequency relief to avoid monochrome/noisy single-step biome painting.
+            relief = (
+                math.sin(col * 0.54 + row * 0.22) * 0.16
+                + math.cos(col * 0.19 - row * 0.45) * 0.14
+                + math.sin((col + row) * 0.31) * 0.10
+            )
+            relief = 0.5 + relief
+            macro = land_potential[row][col]
+            combined = macro * 0.80 + relief * 0.20
+            height_map[row][col] = _clamp(combined, 0.0, 1.0)
+    return _smooth_field(height_map, passes=1)
 
 
 def _add_mountain_chain(height_map, points, strength=0.52):
@@ -297,9 +356,15 @@ def _add_mountain_ranges(height_map, width, height):
         (width * 0.67, height * 0.24),
         (width * 0.76, height * 0.26),
     ]
-    _add_mountain_chain(height_map, caucasus_himalaya, strength=0.64)
-    _add_mountain_chain(height_map, ural, strength=0.46)
-    _add_mountain_chain(height_map, tian_shan_altai, strength=0.50)
+    _add_mountain_chain(height_map, caucasus_himalaya, strength=0.26)
+    _add_mountain_chain(height_map, ural, strength=0.18)
+    _add_mountain_chain(height_map, tian_shan_altai, strength=0.20)
+    for row in range(height):
+        for col in range(width):
+            ridge_noise = abs(math.sin(col * 0.42 + row * 0.26) * math.cos(col * 0.21 - row * 0.39))
+            if ridge_noise > 0.72:
+                height_map[row][col] += (ridge_noise - 0.72) * 0.12
+            height_map[row][col] = _clamp(height_map[row][col], 0.0, 1.0)
 
 
 def _trace_river(height_map, start_col, start_row, terrain):
@@ -321,46 +386,87 @@ def _trace_river(height_map, start_col, start_row, terrain):
         neigh = [p for p in _axial_neighbors(col, row) if _within(p[0], p[1], width, height)]
         if not neigh:
             break
-        neigh.sort(key=lambda p: height_map[p[1]][p[0]])
+        neigh.sort(
+            key=lambda p: (
+                height_map[p[1]][p[0]]
+                + (0.22 if terrain[p[1]][p[0]] == "mountain" else 0.0)
+                + _distance_to_water(height_map, p[0], p[1]) * 0.03
+            )
+        )
         next_cell = neigh[0]
         if height_map[next_cell[1]][next_cell[0]] >= height_map[row][col]:
             # fallback: kohti lähintä merta
             best = min(
                 neigh,
-                key=lambda p: _distance_to_water(height_map, p[0], p[1]) + height_map[p[1]][p[0]] * 0.2,
+                key=lambda p: _distance_to_water(height_map, p[0], p[1]) + height_map[p[1]][p[0]] * 0.4,
             )
             next_cell = best
         current = next_cell
     return path
 
 
-def _carve_rivers(height_map, terrain):
+def _asia_river_sources(height_map, terrain, moisture_map):
+    width = len(height_map[0])
+    height = len(height_map)
+    anchor_points = [
+        (0.73, 0.37),  # Himalaya / Tibetan plateau
+        (0.66, 0.33),  # Pamir/Tian Shan
+        (0.56, 0.29),  # Central Asia
+        (0.41, 0.28),  # Caucasus/Anatolia
+        (0.32, 0.18),  # Ural foothills
+    ]
+    sources = []
+    for ax, ay in anchor_points:
+        cx = int(round(width * ax))
+        cy = int(round(height * ay))
+        best = None
+        best_score = -999.0
+        for row in range(max(0, cy - 2), min(height, cy + 3)):
+            for col in range(max(0, cx - 2), min(width, cx + 3)):
+                if terrain[row][col] in {"water", "shore", "lake"}:
+                    continue
+                h = height_map[row][col]
+                m = moisture_map[row][col]
+                score = h * 1.8 + m * 0.8 - _distance_to_water(height_map, col, row) * 0.03
+                if score > best_score:
+                    best_score = score
+                    best = (col, row)
+        if best:
+            sources.append(best)
+    return sources
+
+
+def _carve_rivers(height_map, terrain, moisture_map):
     width = len(height_map[0])
     height = len(height_map)
     peaks = []
     for row in range(1, height - 1):
         for col in range(1, width - 1):
-            if terrain[row][col] in {"mountain", "forest"} and height_map[row][col] > 1.35:
+            if terrain[row][col] in {"mountain", "forest", "plains"} and height_map[row][col] > 0.68:
                 peaks.append((col, row, height_map[row][col]))
     peaks.sort(key=lambda item: item[2], reverse=True)
     used = set()
     river_paths = []
-    for col, row, _ in peaks[:6]:
+    source_cells = _asia_river_sources(height_map, terrain, moisture_map)
+    source_cells.extend((col, row) for col, row, _ in peaks[:4])
+    for col, row in source_cells:
         path = _trace_river(height_map, col, row, terrain)
-        if len(path) < 4:
+        if len(path) < 5:
             continue
         # joen täytyy päätyä mereen/rantaan
         end_col, end_row = path[-1]
         if terrain[end_row][end_col] not in {"water", "shore"}:
             continue
         fresh = [p for p in path if p not in used]
-        if len(fresh) < 4:
+        if len(fresh) < 5:
             continue
         for c, r in path[:-1]:
-            if terrain[r][c] in {"plains", "forest", "desert"}:
+            if terrain[r][c] in {"plains", "forest", "desert", "mountain"}:
                 terrain[r][c] = "river"
                 used.add((c, r))
         river_paths.append(path)
+        if len(river_paths) >= 7:
+            break
     return river_paths
 
 
@@ -377,20 +483,91 @@ def _coastline_pass(terrain):
                     break
 
 
-def _lake_pass(height_map, terrain):
+def _lake_pass(height_map, terrain, moisture_map, river_paths):
     width = len(terrain[0])
     height = len(terrain)
+    river_cells = {(c, r) for path in river_paths for c, r in path}
     for row in range(1, height - 1):
         for col in range(1, width - 1):
             if terrain[row][col] in {"water", "shore", "river"}:
                 continue
-            neigh = [terrain[nr][nc] for nc, nr in _axial_neighbors(col, row) if _within(nc, nr, width, height)]
-            water_neighbors = sum(1 for t in neigh if t in {"water", "shore", "river"})
-            if water_neighbors >= 3 and height_map[row][col] > 0.55:
+            if not (COAST_LEVEL + 0.03 <= height_map[row][col] <= 0.62):
+                continue
+            if moisture_map[row][col] < 0.60:
+                continue
+            neigh_coords = [(nc, nr) for nc, nr in _axial_neighbors(col, row) if _within(nc, nr, width, height)]
+            neigh_heights = [height_map[nr][nc] for nc, nr in neigh_coords]
+            local_basin = sum(1 for h in neigh_heights if h >= height_map[row][col] + 0.02) >= 3
+            receives_flow = any((nc, nr) in river_cells for nc, nr in neigh_coords)
+            if local_basin and (receives_flow or moisture_map[row][col] > 0.73):
                 terrain[row][col] = "lake"
 
 
-def _assign_biomes(height_map):
+def _generate_temperature_map(height_map):
+    width = len(height_map[0])
+    height = len(height_map)
+    temperature = [[0.0 for _ in range(width)] for _ in range(height)]
+    for row in range(height):
+        lat = row / max(1, height - 1)
+        # Warm belt lower-mid map (India / south China), colder north.
+        lat_heat = 1.0 - abs((lat - 0.62) * 1.55)
+        for col in range(width):
+            noise = (
+                math.sin(col * 0.22 + row * 0.19) * 0.09
+                + math.cos(col * 0.11 - row * 0.28) * 0.06
+            )
+            altitude_cooling = height_map[row][col] * 0.42
+            temperature[row][col] = _clamp(lat_heat + noise - altitude_cooling, 0.0, 1.0)
+    return _smooth_field(temperature, passes=2)
+
+
+def _generate_moisture_map(height_map):
+    width = len(height_map[0])
+    height = len(height_map)
+    moisture = [[0.0 for _ in range(width)] for _ in range(height)]
+    for row in range(height):
+        for col in range(width):
+            sea_dist = _distance_to_water(height_map, col, row)
+            sea_influence = _clamp(1.0 - sea_dist / 8.0, 0.0, 1.0) * 0.33
+            noise = (
+                math.sin(col * 0.31 - row * 0.17) * 0.17
+                + math.cos(col * 0.15 + row * 0.37) * 0.12
+            )
+            # Central Asian arid belt.
+            arid_core = math.exp(
+                -(((col - width * 0.66) ** 2) / (width * 0.32) + ((row - height * 0.34) ** 2) / (height * 0.26))
+            )
+            mountain_lift = 0.10 if height_map[row][col] >= HILL_LEVEL else 0.0
+            moisture[row][col] = _clamp(0.44 + sea_influence + noise + mountain_lift - arid_core * 0.36, 0.0, 1.0)
+    return _smooth_field(moisture, passes=2)
+
+
+def _denoise_land_biomes(terrain):
+    width = len(terrain[0])
+    height = len(terrain)
+    updated = [row[:] for row in terrain]
+    mutable = {"plains", "forest", "desert"}
+    for row in range(height):
+        for col in range(width):
+            current = terrain[row][col]
+            if current not in mutable:
+                continue
+            neigh = [terrain[nr][nc] for nc, nr in _axial_neighbors(col, row) if _within(nc, nr, width, height)]
+            similar = sum(1 for t in neigh if t == current)
+            if similar >= 2:
+                continue
+            counts = {}
+            for t in neigh:
+                if t in mutable:
+                    counts[t] = counts.get(t, 0) + 1
+            if counts:
+                dominant, amount = max(counts.items(), key=lambda item: item[1])
+                if amount >= 3:
+                    updated[row][col] = dominant
+    return updated
+
+
+def _assign_biomes(height_map, temperature_map, moisture_map):
     width = len(height_map[0])
     height = len(height_map)
     terrain = [["water" for _ in range(width)] for _ in range(height)]
@@ -398,29 +575,27 @@ def _assign_biomes(height_map):
     for row in range(height):
         for col in range(width):
             h = height_map[row][col]
-            lat = abs((row / max(1, height - 1)) * 2 - 1)  # 0 equator, 1 poles
+            temp = temperature_map[row][col]
+            moist = moisture_map[row][col]
             inland = _distance_to_water(height_map, col, row)
-            moisture = (
-                math.sin(col * 0.29 + row * 0.11) * 0.35
-                + math.cos(row * 0.23) * 0.25
-                + (0.45 - lat * 0.4)
-                - inland * 0.032
-            )
 
-            if h <= 0.02:
+            if h < SEA_LEVEL:
                 terrain[row][col] = "water"
-            elif h >= 1.40:
+            elif h < COAST_LEVEL:
+                terrain[row][col] = "shore"
+            elif h >= MOUNTAIN_LEVEL:
                 terrain[row][col] = "mountain"
-            elif moisture < -0.08 and inland > 4 and lat < 0.55:
+            elif temp > 0.54 and moist < 0.30 and inland > 3:
                 terrain[row][col] = "desert"
-            elif moisture > 0.15:
+            elif moist > 0.56:
                 terrain[row][col] = "forest"
             else:
                 terrain[row][col] = "plains"
 
     _coastline_pass(terrain)
-    _lake_pass(height_map, terrain)
-    river_paths = _carve_rivers(height_map, terrain)
+    river_paths = _carve_rivers(height_map, terrain, moisture_map)
+    _lake_pass(height_map, terrain, moisture_map, river_paths)
+    terrain = _denoise_land_biomes(terrain)
     return terrain, river_paths
 
 
@@ -460,11 +635,11 @@ def _continent_clusters(terrain):
 
 
 def _elevation_band(elevation):
-    if elevation >= 1.45:
+    if elevation >= MOUNTAIN_LEVEL:
         return "high"
-    if elevation >= 0.85:
+    if elevation >= HILL_LEVEL:
         return "mid"
-    if elevation >= 0.25:
+    if elevation >= COAST_LEVEL:
         return "low"
     return "sea"
 
@@ -486,7 +661,10 @@ def _terrain_role(terrain):
 def _init_hex_map(width, height):
     height_map = _generate_continents(width, height)
     _add_mountain_ranges(height_map, width, height)
-    terrain, river_paths = _assign_biomes(height_map)
+    height_map = _smooth_field(_normalize_field(height_map), passes=1)
+    temperature_map = _generate_temperature_map(height_map)
+    moisture_map = _generate_moisture_map(height_map)
+    terrain, river_paths = _assign_biomes(height_map, temperature_map, moisture_map)
     continents = _continent_clusters(terrain)
 
     hexes = []
