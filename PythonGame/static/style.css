@@ -8,14 +8,13 @@
     --line: #cbbda1;
     --map-paper: #dcd2bb;
     --map-paper-2: #efe6d1;
-    --hex-outline: rgba(46, 44, 36, 0.45);
+    --hex-outline: rgba(46, 44, 36, 0.5);
     --hex-select: #68a2ff;
     --hex-select-glow: rgba(104, 162, 255, 0.35);
-    --biome-forest: #5c7d49;
-    --biome-mountain: #8f8f8f;
-    --biome-plains: #9fc47f;
-    --biome-desert: #d4b97b;
-    --biome-water: #5f8fb6;
+    --elev-ocean: #2f5f97;
+    --elev-coast: #74a9d8;
+    --elev-plains: #8dbb6f;
+    --elev-hills: #4f7f3f;
 }
 
 * {
@@ -185,9 +184,25 @@ h3 {
     transition: transform 120ms ease, filter 120ms ease, stroke 120ms ease, fill 120ms ease;
 }
 
+.hex-tile.elev-ocean .hex-shape {
+    fill: var(--elev-ocean);
+}
+
+.hex-tile.elev-coast .hex-shape {
+    fill: var(--elev-coast);
+}
+
+.hex-tile.elev-plains .hex-shape {
+    fill: var(--elev-plains);
+}
+
+.hex-tile.elev-hills .hex-shape {
+    fill: var(--elev-hills);
+}
+
 .hex-tile.shoreline .hex-shape {
-    stroke: rgba(28, 47, 72, 0.85);
-    stroke-width: 2;
+    stroke: rgba(23, 41, 62, 0.92);
+    stroke-width: 2.3;
 }
 
 .hex-tile.selected .hex-shape {
@@ -207,25 +222,34 @@ h3 {
 }
 
 .hex-tile.river-segment .hex-shape {
-    stroke: rgba(122, 179, 224, 0.95);
-    stroke-width: 2.1;
+    stroke: rgba(89, 166, 219, 0.96);
+    stroke-width: 2.15;
 }
 
-.river-line {
-    stroke: rgba(72, 165, 224, 0.98);
-    stroke-width: 2.4;
+.river-flow {
+    stroke: rgba(46, 158, 230, 0.98);
+    stroke-width: 2.6;
     stroke-linecap: round;
     opacity: 0.95;
     pointer-events: none;
 }
 
-.hex-role-overlay {
+.terrain-role-overlay {
     pointer-events: none;
     opacity: 0.34;
 }
 
-.hex-role-overlay.terrain-role-mountain {
+.terrain-role-overlay.terrain-role-mountain {
     opacity: 0.45;
+}
+
+.terrain-role-overlay.terrain-role-desert {
+    opacity: 0.38;
+}
+
+.continent-edge-blend {
+    fill: rgba(255, 236, 180, 0.26);
+    pointer-events: none;
 }
 
 .terrain-icon {
@@ -353,23 +377,23 @@ h3 {
 }
 
 .legend-swatch.biome-forest {
-    background: var(--biome-forest);
+    background: var(--elev-hills);
 }
 
 .legend-swatch.biome-mountain {
-    background: var(--biome-mountain);
+    background: #8f8f8f;
 }
 
 .legend-swatch.biome-plains {
-    background: var(--biome-plains);
+    background: var(--elev-plains);
 }
 
 .legend-swatch.biome-desert {
-    background: var(--biome-desert);
+    background: #d4b97b;
 }
 
 .legend-swatch.biome-water {
-    background: var(--biome-water);
+    background: var(--elev-ocean);
 }
 
 .faction-pieces {

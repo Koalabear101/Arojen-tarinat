@@ -126,7 +126,49 @@ function buildHexLookup(hexes) {
     return lookup;
 }
 
-function buildContinentIds(hexes, lookup) {
+function buildContinentIds(hexes, continents, lookup) {
+    const explicit = new Map();
+    hexes.forEach((hex) => {
+        if (Number.isInteger(hex.continent_id) && isLandBand(normalizeElevationBand(hex.elevation_band))) {
+            explicit.set(coordKey(hex.col, hex.row), hex.continent_id);
+        }
+    });
+    if (explicit.size) {
+        return explicit;
+    }
+
+    if (Array.isArray(continents) && continents.length) {
+        const centroids = continents
+            .filter((continent) => continent && continent.centroid)
+            .map((continent, index) => ({
+                id: Number.isInteger(continent.id) ? continent.id : index + 1,
+                x: Number(continent.centroid.x ?? 0),
+                y: Number(continent.centroid.y ?? 0),
+            }));
+        if (centroids.length) {
+            const fromCentroid = new Map();
+            hexes.forEach((hex) => {
+                const band = normalizeElevationBand(hex.elevation_band);
+                if (!isLandBand(band)) {
+                    return;
+                }
+                const nearest = centroids.reduce((best, current) => {
+                    const dist = (hex.col - current.x) ** 2 + (hex.row - current.y) ** 2;
+                    if (!best || dist < best.dist) {
+                        return { id: current.id, dist };
+                    }
+                    return best;
+                }, null);
+                if (nearest) {
+                    fromCentroid.set(coordKey(hex.col, hex.row), nearest.id);
+                }
+            });
+            if (fromCentroid.size) {
+                return fromCentroid;
+            }
+        }
+    }
+
     const continentIds = new Map();
     let nextId = 1;
     hexes.forEach((hex) => {
@@ -267,11 +309,11 @@ function addMapDefs(svg) {
 
 function appendTerrainOverlay(tileGroup, points, terrainRole) {
     let patternId = null;
-    if (terrainRole === "woodland") {
+    if (terrainRole === "woodland" || terrainRole === "forest") {
         patternId = "role-forest-pattern";
-    } else if (terrainRole === "high_peak") {
+    } else if (terrainRole === "high_peak" || terrainRole === "highland" || terrainRole === "mountain") {
         patternId = "role-mountain-pattern";
-    } else if (terrainRole === "arid_zone") {
+    } else if (terrainRole === "arid_zone" || terrainRole === "arid" || terrainRole === "desert") {
         patternId = "role-desert-pattern";
     }
     if (!patternId) {
@@ -366,7 +408,7 @@ function renderHexBoard(data) {
     addMapDefs(svg);
 
     const hexLookup = buildHexLookup(positioned);
-    const continentIds = buildContinentIds(positioned, hexLookup);
+    const continentIds = buildContinentIds(positioned, data.continents || [], hexLookup);
     const riverNetwork = buildRiverNetwork(data.rivers || []);
 
     positioned.forEach((hex) => {
@@ -421,6 +463,7 @@ function renderHexBoard(data) {
 
         const riverLinks = riverNetwork.get(coord);
         if (riverLinks && riverLinks.size > 0) {
+            tileGroup.classList.add("river-segment");
             const linkedHexes = [...riverLinks]
                 .map((neighborKey) => hexLookup.get(neighborKey))
                 .filter(Boolean);
