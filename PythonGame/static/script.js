@@ -28,7 +28,17 @@ const victoryIcons = {
     technology: "⚙️",
 };
 
-const biomeTypes = ["steppe", "forest", "mountain", "river", "lake", "desert"];
+const biomeTypes = ["steppe", "forest", "hills", "mountain", "river", "lake"];
+const biomeIcons = {
+    steppe: "·",
+    forest: "🌲",
+    hills: "⛰",
+    mountain: "▲",
+    river: "≈",
+    lake: "◉",
+};
+
+let boardZoom = 30;
 
 function biomeForHex(rowIndex, colIndex) {
     const value = (rowIndex * 7 + colIndex * 11 + rowIndex * colIndex) % biomeTypes.length;
@@ -52,34 +62,43 @@ function renderBoard(boardData, playerFaction) {
     const boardDiv = document.getElementById("board");
     boardDiv.innerHTML = "";
 
-    boardData.forEach((row, rowIndex) => {
-        const rowDiv = document.createElement("div");
-        rowDiv.className = "hex-row";
-        if (rowIndex % 2 === 1) {
-            rowDiv.classList.add("offset");
-        }
+    const boardRows = boardData.length;
+    const boardCols = boardData[0]?.length ?? 0;
+    const visibleRows = Math.max(18, boardRows + 8);
+    const visibleCols = Math.max(24, boardCols + 14);
 
-        row.forEach((cell, colIndex) => {
+    boardDiv.style.setProperty("--hex-rows", String(visibleRows));
+    boardDiv.style.setProperty("--hex-cols", String(visibleCols));
+    boardDiv.style.setProperty("--hex-size", `${boardZoom}px`);
+
+    for (let rowIndex = 0; rowIndex < visibleRows; rowIndex += 1) {
+        for (let colIndex = 0; colIndex < visibleCols; colIndex += 1) {
+            const cell = boardData[rowIndex]?.[colIndex] ?? null;
             const biome = biomeForHex(rowIndex, colIndex);
             const cellDiv = document.createElement("div");
-            cellDiv.className = `hex-cell biome-${biome}`;
+            cellDiv.className = `hex biome-${biome}`;
+            cellDiv.dataset.odd = rowIndex % 2 === 1 ? "true" : "false";
 
             if (cell) {
-                cellDiv.textContent = cell.faction[0];
+                const label = document.createElement("span");
+                label.className = "hex-label";
+                label.textContent = cell.faction[0];
+                cellDiv.appendChild(label);
                 if (cell.faction === playerFaction) {
-                    cellDiv.classList.add("player");
+                    cellDiv.classList.add("player-unit");
                 } else {
-                    cellDiv.classList.add("enemy");
+                    cellDiv.classList.add("enemy-unit");
                 }
             } else {
-                cellDiv.classList.add("empty");
+                const icon = document.createElement("span");
+                icon.className = "hex-icon";
+                icon.textContent = biomeIcons[biome] ?? "·";
+                cellDiv.appendChild(icon);
             }
 
-            rowDiv.appendChild(cellDiv);
-        });
-
-        boardDiv.appendChild(rowDiv);
-    });
+            boardDiv.appendChild(cellDiv);
+        }
+    }
 }
 
 function renderResources(resources) {
@@ -87,7 +106,7 @@ function renderResources(resources) {
     resourcesList.innerHTML = "";
     Object.keys(resourceLabels).forEach((key) => {
         const li = document.createElement("li");
-        li.innerHTML = `<span class="inline-icon">${resourceIcons[key] ?? "•"}</span> ${resourceLabels[key]}: <strong>${resources[key] ?? 0}</strong>`;
+        li.innerHTML = `<span class="item-label"><span class="icon">${resourceIcons[key] ?? "•"}</span>${resourceLabels[key]}</span><span class="item-value">${resources[key] ?? 0}</span>`;
         resourcesList.appendChild(li);
     });
 }
@@ -101,7 +120,7 @@ function renderVictoryProgress(progress, goals, winner) {
         const li = document.createElement("li");
         const current = progress[key] ?? 0;
         const target = goals[key]?.target ?? 0;
-        li.innerHTML = `<span class="inline-icon">${victoryIcons[key] ?? "•"}</span> ${victoryLabels[key]}: <strong>${current}/${target}</strong>`;
+        li.innerHTML = `<span class="item-label"><span class="icon">${victoryIcons[key] ?? "•"}</span>${victoryLabels[key]}</span><span class="item-value">${current}/${target}</span>`;
         victoryList.appendChild(li);
     });
 
@@ -154,6 +173,22 @@ function loadState() {
         });
 }
 
+function setupBoardZoom() {
+    const range = document.getElementById("board-zoom-range");
+    const value = document.getElementById("board-zoom-value");
+    if (!range || !value) {
+        return;
+    }
+
+    boardZoom = Number(range.value || 30);
+    value.textContent = `${boardZoom}px`;
+    range.addEventListener("input", () => {
+        boardZoom = Number(range.value || 30);
+        value.textContent = `${boardZoom}px`;
+        loadState();
+    });
+}
+
 document.getElementById("faction-form").addEventListener("submit", function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -173,3 +208,4 @@ document.getElementById("faction-form").addEventListener("submit", function (e) 
 });
 
 loadState();
+setupBoardZoom();
