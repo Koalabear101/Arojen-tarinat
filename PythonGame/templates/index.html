@@ -58,7 +58,7 @@
                 </div>
             </div>
             <div id="board-wrapper">
-                <svg id="board-svg" aria-label="civilization-hex-map"></svg>
+                <div id="board" aria-label="civilization-hex-map"></div>
             </div>
             <div class="terrain-legend" aria-label="biome-legend">
                 <span><i class="legend-swatch biome-forest"></i>Metsä</span>
@@ -105,7 +105,7 @@
         <div id="messages" class="message-log"></div>
     </div>
 
-    <div id="unit-tooltip" class="unit-tooltip hidden"></div>
+    <div id="unit-tooltip" class="map-tooltip hidden"></div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

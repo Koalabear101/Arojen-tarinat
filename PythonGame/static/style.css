@@ -1,28 +1,11 @@
 :root {
     --bg: #e9e3d3;
     --bg-overlay: rgba(255, 250, 240, 0.78);
-    --paper: #f7f2e6;
     --card: #fbf8ef;
     --card-strong: #f3ecd9;
     --ink: #2f2a1f;
     --muted: #625a47;
-    --accent: #496a4f;
-    --accent-strong: #2f5236;
     --line: #cbbda1;
-    --forest: #7c9669;
-    --mountain: #a69b8a;
-    --plains: #d7c68f;
-    --river: #7fa3b8;
-    --lake: #6b8ea8;
-    --marsh: #8ea889;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-/* Civilization-style visual refresh */
-:root {
     --map-paper: #dcd2bb;
     --map-paper-2: #efe6d1;
     --hex-outline: rgba(46, 44, 36, 0.45);
@@ -33,6 +16,10 @@
     --biome-plains: #9fc47f;
     --biome-desert: #d4b97b;
     --biome-water: #5f8fb6;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
@@ -82,25 +69,6 @@ h3 {
     letter-spacing: 0.05em;
 }
 
-.container {
-    background: var(--bg-overlay);
-    backdrop-filter: blur(1px);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 10px 30px rgba(46, 38, 24, 0.15);
-    margin-bottom: 20px;
-}
-
-.header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 14px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-}
-
 .app-header {
     margin: 8px 0 18px;
 }
@@ -116,10 +84,14 @@ h3 {
     color: #4f5e46;
 }
 
-.subtitle {
-    color: var(--muted);
-    font-size: 0.96rem;
-    margin: 0;
+.container {
+    background: var(--bg-overlay);
+    backdrop-filter: blur(1px);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(46, 38, 24, 0.15);
+    margin-bottom: 20px;
 }
 
 .status-grid {
@@ -136,232 +108,6 @@ h3 {
     padding: 14px;
     margin-bottom: 12px;
     box-shadow: 0 6px 16px rgba(37, 31, 19, 0.1);
-}
-
-#board-wrapper {
-    position: relative;
-    overflow: auto;
-    border-radius: 14px;
-    border: 1px solid var(--line);
-    background:
-        radial-gradient(circle at 12% 15%, rgba(83, 113, 73, 0.14), transparent 35%),
-        radial-gradient(circle at 85% 70%, rgba(120, 95, 70, 0.16), transparent 45%),
-        repeating-linear-gradient(
-            30deg,
-            rgba(105, 90, 68, 0.03) 0,
-            rgba(105, 90, 68, 0.03) 3px,
-            transparent 3px,
-            transparent 9px
-        ),
-        linear-gradient(180deg, var(--map-paper-2), var(--map-paper));
-    min-height: 560px;
-    max-height: 72vh;
-}
-
-#board {
-    min-width: 100%;
-    min-height: 560px;
-}
-
-#hex-map {
-    display: block;
-    min-width: max-content;
-    min-height: max-content;
-}
-
-.hex-tile {
-    stroke: var(--hex-outline);
-    stroke-width: 1.2;
-    transition: transform 120ms ease, filter 120ms ease, stroke 120ms ease;
-}
-
-.hex-tile.biome-forest {
-    fill: var(--biome-forest);
-}
-
-.hex-tile.biome-mountain {
-    fill: var(--biome-mountain);
-}
-
-.hex-tile.biome-plains {
-    fill: var(--biome-plains);
-}
-
-.hex-tile.biome-desert {
-    fill: var(--biome-desert);
-}
-
-.hex-tile.biome-water {
-    fill: var(--biome-water);
-}
-
-.hex-tile.biome-lake {
-    fill: #6a9ec8;
-}
-
-.hex-tile.biome-hills {
-    fill: #b7aa8f;
-}
-
-.hex-tile.biome-river {
-    fill: #76a4c9;
-}
-
-.hex-tile.biome-steppe {
-    fill: #b8ca8c;
-}
-
-.hex-tile.selected {
-    stroke: var(--hex-select);
-    stroke-width: 2.4;
-    filter: drop-shadow(0 0 8px var(--hex-select-glow));
-}
-
-.hex-biome-icon {
-    font-size: 10px;
-    fill: rgba(255, 255, 255, 0.78);
-    pointer-events: none;
-}
-
-.hex-faction-label {
-    font-size: 8px;
-    fill: #1f1f1f;
-    text-anchor: middle;
-    pointer-events: none;
-}
-
-.spawn-badge {
-    fill: rgba(255, 255, 255, 0.92);
-    stroke: rgba(30, 30, 30, 0.35);
-    stroke-width: 0.8;
-}
-
-.unit-token {
-    cursor: pointer;
-    transition: transform 120ms ease;
-}
-
-.unit-token:hover {
-    transform: translateY(-2px);
-}
-
-.unit-shape {
-    fill: rgba(255, 255, 255, 0.95);
-    stroke: rgba(30, 30, 30, 0.45);
-    stroke-width: 0.9;
-}
-
-.unit-glyph {
-    font-size: 10px;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    pointer-events: none;
-}
-
-.unit-player .unit-shape {
-    fill: #eaf8ea;
-    stroke: #3a7a3f;
-}
-
-.unit-enemy .unit-shape {
-    fill: #f8ecec;
-    stroke: #9d4a4a;
-}
-
-.battle-path {
-    stroke: #d9534f;
-    stroke-width: 2.2;
-    stroke-dasharray: 5 4;
-    fill: none;
-    opacity: 0.85;
-    animation: battle-dash 0.6s linear infinite;
-}
-
-@keyframes battle-dash {
-    to {
-        stroke-dashoffset: -18;
-    }
-}
-
-.battle-target {
-    stroke: #d9534f;
-    stroke-width: 2.6;
-    fill: rgba(217, 83, 79, 0.2);
-}
-
-.map-tooltip {
-    position: fixed;
-    z-index: 50;
-    pointer-events: none;
-    padding: 8px 10px;
-    border-radius: 10px;
-    background: rgba(42, 37, 29, 0.95);
-    color: #f8f1e6;
-    font-size: 12px;
-    line-height: 1.3;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
-    transform: translate(10px, 10px);
-}
-
-.map-tooltip.hidden {
-    display: none;
-}
-
-.faction-pieces {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 10px;
-}
-
-.faction-troop-card {
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: rgba(252, 247, 238, 0.92);
-    padding: 10px 12px;
-}
-
-.faction-troop-card h4 {
-    margin: 0 0 6px;
-    font-size: 0.96rem;
-}
-
-.troop-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.troop-list li {
-    display: flex;
-    justify-content: space-between;
-    padding: 3px 0;
-    border-bottom: 1px dashed rgba(110, 95, 72, 0.3);
-}
-
-.troop-list li:last-child {
-    border-bottom: none;
-}
-
-.battle-view {
-    display: block;
-}
-
-.battle-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 12px;
-}
-
-.battle-result {
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: rgba(247, 238, 221, 0.92);
-}
-
-.card-title {
-    margin: 0 0 6px;
 }
 
 .resource-list,
@@ -405,113 +151,164 @@ h3 {
 }
 
 #board-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
+    position: relative;
     overflow: auto;
-    max-height: 70vh;
-    border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 14px;
+    border: 1px solid var(--line);
     background:
-        radial-gradient(circle at 50% 30%, rgba(129, 149, 109, 0.18), transparent 50%),
-        radial-gradient(circle at 0% 100%, rgba(139, 113, 84, 0.18), transparent 45%),
-        #efe7d4;
+        radial-gradient(circle at 12% 15%, rgba(83, 113, 73, 0.14), transparent 35%),
+        radial-gradient(circle at 85% 70%, rgba(120, 95, 70, 0.16), transparent 45%),
+        repeating-linear-gradient(
+            30deg,
+            rgba(105, 90, 68, 0.03) 0,
+            rgba(105, 90, 68, 0.03) 3px,
+            transparent 3px,
+            transparent 9px
+        ),
+        linear-gradient(180deg, var(--map-paper-2), var(--map-paper));
+    min-height: 560px;
+    max-height: 72vh;
 }
 
 #board {
-    display: grid;
-    grid-template-columns: repeat(var(--hex-cols, 18), calc(var(--hex-size, 30px) * 1.72));
-    grid-template-rows: repeat(var(--hex-rows, 18), calc(var(--hex-size, 30px) * 1.5));
-    gap: 0;
     min-width: max-content;
-    padding: 8px 10px 18px;
+    min-height: max-content;
 }
 
-.hex {
-    position: relative;
-    width: calc(var(--hex-size, 30px) * 1.58);
-    height: calc(var(--hex-size, 30px) * 1.82);
-    margin-left: calc(var(--hex-size, 30px) * 0.07);
-    margin-right: calc(var(--hex-size, 30px) * 0.07);
-    clip-path: polygon(
-        50% 0%,
-        95% 25%,
-        95% 75%,
-        50% 100%,
-        5% 75%,
-        5% 25%
-    );
-    border: 1px solid rgba(43, 53, 35, 0.2);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.45),
-        0 3px 8px rgba(42, 36, 24, 0.18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: #21231d;
-    user-select: none;
+.hex-map-svg {
+    display: block;
 }
 
-.hex[data-odd="true"] {
-    transform: translateY(calc(var(--hex-size, 30px) * 0.8));
+.hex-shape {
+    stroke: var(--hex-outline);
+    stroke-width: 1.2;
+    transition: transform 120ms ease, filter 120ms ease, stroke 120ms ease;
 }
 
-.hex.biome-forest {
-    background: linear-gradient(170deg, #8fa77c 0%, #738d66 100%);
+.hex-tile.biome-forest .hex-shape {
+    fill: var(--biome-forest);
 }
 
-.hex.biome-mountain {
-    background: linear-gradient(170deg, #b5ad9e 0%, #918673 100%);
+.hex-tile.biome-mountain .hex-shape {
+    fill: var(--biome-mountain);
 }
 
-.hex.biome-plains {
-    background: linear-gradient(170deg, #e0cf96 0%, #cfb97c 100%);
+.hex-tile.biome-plains .hex-shape {
+    fill: var(--biome-plains);
 }
 
-.hex.biome-river {
-    background: linear-gradient(170deg, #8cb0c4 0%, #6f96ad 100%);
+.hex-tile.biome-desert .hex-shape {
+    fill: var(--biome-desert);
 }
 
-.hex.biome-lake {
-    background: linear-gradient(170deg, #7ea2ba 0%, #5e83a0 100%);
+.hex-tile.biome-water .hex-shape,
+.hex-tile.biome-lake .hex-shape {
+    fill: var(--biome-water);
 }
 
-.hex.biome-steppe {
-    background: linear-gradient(170deg, #ddcf9f 0%, #c9b47b 100%);
+.hex-tile.selected .hex-shape {
+    stroke: var(--hex-select);
+    stroke-width: 2.4;
+    filter: drop-shadow(0 0 8px var(--hex-select-glow));
 }
 
-.hex.biome-hills {
-    background: linear-gradient(170deg, #c5b49b 0%, #a48f71 100%);
+.hex-tile.highlight-attacker .hex-shape {
+    stroke: #f39c12;
+    stroke-width: 2.8;
 }
 
-.hex.player-unit {
-    border-color: rgba(24, 56, 28, 0.8);
-    box-shadow:
-        0 0 0 2px rgba(66, 134, 74, 0.55),
-        0 5px 10px rgba(27, 56, 32, 0.28);
+.hex-tile.highlight-defender .hex-shape {
+    stroke: #d9534f;
+    stroke-width: 2.8;
 }
 
-.hex.enemy-unit {
-    border-color: rgba(78, 26, 26, 0.78);
-    box-shadow:
-        0 0 0 2px rgba(163, 74, 74, 0.48),
-        0 5px 10px rgba(70, 28, 26, 0.26);
+.terrain-icon {
+    font-size: 12px;
+    fill: rgba(255, 255, 255, 0.85);
+    pointer-events: none;
+    text-anchor: middle;
 }
 
-.hex-label {
-    font-size: 0.82rem;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+.faction-marker {
+    font-size: 11px;
+    fill: #1f1f1f;
+    pointer-events: none;
 }
 
-.hex-icon {
-    position: absolute;
-    bottom: 4px;
-    right: 7px;
-    opacity: 0.55;
-    font-size: 0.75rem;
+.faction-name-label {
+    font-size: 8px;
+    fill: #1f1f1f;
+    pointer-events: none;
+}
+
+.unit-token {
+    cursor: pointer;
+    transition: transform 120ms ease;
+}
+
+.unit-token:hover {
+    transform: translateY(-2px);
+}
+
+.unit-dot {
+    fill: rgba(255, 255, 255, 0.94);
+    stroke: rgba(30, 30, 30, 0.45);
+    stroke-width: 0.9;
+}
+
+.unit-token.player .unit-dot {
+    fill: #eaf8ea;
+    stroke: #3a7a3f;
+}
+
+.unit-token.enemy .unit-dot {
+    fill: #f8ecec;
+    stroke: #9d4a4a;
+}
+
+.unit-dot-label {
+    font-size: 10px;
+    text-anchor: middle;
+    pointer-events: none;
+}
+
+.battle-path {
+    stroke: #d9534f;
+    stroke-width: 2.2;
+    stroke-dasharray: 5 4;
+    fill: none;
+    opacity: 0.85;
+    animation: battle-dash 0.6s linear infinite;
+}
+
+@keyframes battle-dash {
+    to {
+        stroke-dashoffset: -18;
+    }
+}
+
+.battle-target {
+    stroke: #d9534f;
+    stroke-width: 2.6;
+    fill: rgba(217, 83, 79, 0.2);
+}
+
+.map-tooltip {
+    position: fixed;
+    z-index: 50;
+    pointer-events: none;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(42, 37, 29, 0.95);
+    color: #f8f1e6;
+    font-size: 12px;
+    line-height: 1.3;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    transform: translate(10px, 10px);
+}
+
+.map-tooltip.hidden {
+    display: none;
 }
 
 .board-header {
@@ -549,28 +346,88 @@ h3 {
     vertical-align: middle;
 }
 
-.legend-swatch.biome-steppe {
-    background: #cfbb84;
-}
-
 .legend-swatch.biome-forest {
-    background: #7f986b;
-}
-
-.legend-swatch.biome-hills {
-    background: #ab9677;
+    background: var(--biome-forest);
 }
 
 .legend-swatch.biome-mountain {
-    background: #9d917f;
+    background: var(--biome-mountain);
 }
 
-.legend-swatch.biome-river {
-    background: #779eb7;
+.legend-swatch.biome-plains {
+    background: var(--biome-plains);
 }
 
-.legend-swatch.biome-lake {
-    background: #6489a5;
+.legend-swatch.biome-desert {
+    background: var(--biome-desert);
+}
+
+.legend-swatch.biome-water {
+    background: var(--biome-water);
+}
+
+.faction-pieces {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+}
+
+.faction-troop-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(252, 247, 238, 0.92);
+    padding: 10px 12px;
+}
+
+.faction-troop-card h4 {
+    margin: 0 0 6px;
+    font-size: 0.96rem;
+}
+
+.troop-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.troop-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed rgba(110, 95, 72, 0.3);
+}
+
+.troop-list li:last-child {
+    border-bottom: none;
+}
+
+.troop-token {
+    margin-right: 6px;
+}
+
+.battle-view {
+    display: block;
+}
+
+.battle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.battle-side {
+    background: rgba(250, 244, 232, 0.85);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.battle-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgba(247, 238, 221, 0.92);
 }
 
 .controls {
@@ -610,99 +467,6 @@ button:disabled {
     color: #4f4736;
 }
 
-.faction-pieces {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
-}
-
-.faction-troop-card {
-    background: rgba(251, 246, 235, 0.86);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px;
-}
-
-.faction-troop-card h4 {
-    margin: 0 0 8px;
-    font-size: 0.95rem;
-}
-
-.troop-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.troop-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px dashed rgba(107, 93, 72, 0.28);
-}
-
-.troop-list li:last-child {
-    border-bottom: none;
-}
-
-.troop-token {
-    margin-right: 6px;
-}
-
-.battle-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-    margin-top: 10px;
-}
-
-.battle-side {
-    background: rgba(250, 244, 232, 0.85);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px;
-}
-
-.battle-side h4 {
-    margin: 0 0 6px;
-}
-
-.dice-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    min-height: 30px;
-}
-
-.die {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    font-weight: 700;
-    color: #fff;
-    box-shadow: 0 3px 8px rgba(20, 20, 20, 0.2);
-}
-
-.die.attack {
-    background: linear-gradient(180deg, #a95841 0%, #7e3f2f 100%);
-}
-
-.die.defense {
-    background: linear-gradient(180deg, #4a6f9f 0%, #35527a 100%);
-}
-
-.battle-result {
-    margin-top: 12px;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #f4ecd9;
-}
-
 .winner-banner {
     margin-top: 10px;
     font-weight: bold;
@@ -716,10 +480,4 @@ button:disabled {
 .help-text {
     color: var(--muted);
     margin-top: 0;
-}
-
-@media (max-width: 900px) {
-    .hex-label {
-        font-size: 0.7rem;
-    }
 }
