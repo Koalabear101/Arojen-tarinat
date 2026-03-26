@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, render_template, request
 from GameBoard import GameBoard
 from DiplomacySystem import DiplomacySystem
-import json
 import math
 import os
 import random
@@ -198,25 +197,6 @@ game_state = {
     "log": {"battle": [], "event": []},
     "universal_science_unlocked": False,
 }
-
-
-def _debug_log(hypothesis_id, location, message, data=None):
-    try:
-        os.makedirs("/opt/cursor/logs", exist_ok=True)
-        open("/opt/cursor/logs/debug.log", "a").write(
-            json.dumps(
-                {
-                    "hypothesisId": hypothesis_id,
-                    "location": location,
-                    "message": message,
-                    "data": data or {},
-                    "timestamp": int(__import__("time").time() * 1000),
-                }
-            )
-            + "\n"
-        )
-    except Exception:
-        pass
 
 
 def _starting_resources(faction_name):
@@ -1512,26 +1492,10 @@ def _resolve_targeted_attack(attacker_x, attacker_y, defender_x, defender_y):
 
 def _resolve_hex_click(col, row):
     board = game_state["board"]
-    # region agent log
-    _debug_log(
-        "H2",
-        "app.py:_resolve_hex_click:1513",
-        "resolve_hex_click entry",
-        {"phase": _current_phase(), "col": col, "row": row, "selected_hex_before": game_state.get("selected_hex")},
-    )
-    # endregion
     if not _within(col, row, board.width, board.height):
         return "Klikattu heksi on kartan ulkopuolella."
     phase = _current_phase()
     game_state["selected_hex"] = {"x": col, "y": row}
-    # region agent log
-    _debug_log(
-        "H2",
-        "app.py:_resolve_hex_click:1525",
-        "selected_hex updated",
-        {"selected_hex_after": game_state.get("selected_hex"), "phase": phase},
-    )
-    # endregion
     unit = board.board[row][col]
     if unit and unit["faction"] == game_state["player_faction"]["name"]:
         return _select_unit(col, row)
@@ -1800,14 +1764,6 @@ def _game_snapshot(message=""):
                     None,
                 ),
             }
-    # region agent log
-    _debug_log(
-        "H4",
-        "app.py:_game_snapshot:1775",
-        "snapshot selected_hex serialization",
-        {"selected_hex_payload": selected_hex_payload, "selected_hex_info": selected_hex_info, "phase": phase},
-    )
-    # endregion
     victory_goals_view, victory_progress_view = _normalized_victory_view()
     return {
         "status": "ok",
@@ -1921,20 +1877,6 @@ def _apply_action(action, payload=None):
     payload = payload or {}
     phase = _current_phase()
     player_name = game_state["player_faction"]["name"]
-    # region agent log
-    _debug_log(
-        "H1",
-        "app.py:_apply_action:1908",
-        "apply_action entry",
-        {
-            "action": action,
-            "phase": phase,
-            "allowed_actions": PHASE_ACTIONS.get(phase, []),
-            "selected_hex_before": game_state.get("selected_hex"),
-            "payload_xy": {"x": payload.get("x"), "y": payload.get("y")},
-        },
-    )
-    # endregion
     if action in {"next_phase", "end_phase"}:
         if action == "next_phase" and phase == "Resurssivaihe" and not _phase_default_action_done(phase):
             msg = _apply_action("collect_resources", payload)
@@ -1949,14 +1891,6 @@ def _apply_action(action, payload=None):
         game_state["turn"] += 1
         return "Vuoro päättyi. AI teki siirtonsa."
     if action not in PHASE_ACTIONS.get(phase, []):
-        # region agent log
-        _debug_log(
-            "H1",
-            "app.py:_apply_action:1930",
-            "action rejected by phase gate",
-            {"action": action, "phase": phase, "allowed_actions": PHASE_ACTIONS.get(phase, [])},
-        )
-        # endregion
         return "Toiminto ei ole sallittu tässä vaiheessa."
 
     if action == "collect_resources":
@@ -1985,23 +1919,7 @@ def _apply_action(action, payload=None):
             col = int(payload.get("x"))
             row = int(payload.get("y"))
         except (TypeError, ValueError):
-            # region agent log
-            _debug_log(
-                "H3",
-                "app.py:_apply_action:1961",
-                "hex_click payload parse failed",
-                {"payload_xy": {"x": payload.get("x"), "y": payload.get("y")}},
-            )
-            # endregion
             return "Virheellinen heksivalinta."
-        # region agent log
-        _debug_log(
-            "H3",
-            "app.py:_apply_action:1968",
-            "hex_click dispatching to resolver",
-            {"col": col, "row": row, "phase": phase},
-        )
-        # endregion
         return _resolve_hex_click(col, row)
 
     if action == "recruit_infantry":
@@ -2131,14 +2049,6 @@ def take_action():
         return jsonify({"error": "Game not started"}), 400
     payload = request.get_json(silent=True) or {}
     action = payload.get("action", "").strip()
-    # region agent log
-    _debug_log(
-        "H1",
-        "app.py:take_action:2094",
-        "take_action request received",
-        {"action": action, "phase_before": _current_phase(), "payload_xy": {"x": payload.get("x"), "y": payload.get("y")}},
-    )
-    # endregion
     if not action:
         return jsonify({"error": "Action is required"}), 400
     message = _apply_action(action, payload)
