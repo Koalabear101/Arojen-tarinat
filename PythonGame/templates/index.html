@@ -3,35 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arojen-tarinat</title>
+    <title>Mongolien Valtakunta - Civ Hex</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Arojen-tarinat</h1>
-    <div id="setup" class="container">
-        <h2>Valitse heimosi</h2>
-        <form id="faction-form">
-            {% for i, faction in enumerate(factions) %}
-            <label>
-                <input type="radio" name="faction" value="{{ i }}" required>
-                {{ faction.name }} - {{ faction.bonus }}
-            </label><br>
-            {% endfor %}
-            <button type="submit">Aloita peli</button>
+    <header class="app-header">
+        <p class="app-kicker">Arojen tarina</p>
+        <h1>Mongolien Valtakunta</h1>
+        <p class="app-subtitle">Civilization-henkinen heksalauta biomeilla</p>
+    </header>
+
+    <div id="setup" class="container setup-lobby">
+        <div class="setup-backdrop-layer" aria-hidden="true"></div>
+        <h2>Valitse sivilisaatio maailmanvalloitukseen</h2>
+        <p class="help-text">Valitse heimo kortista. Esikatselu näyttää todennäköisen aloitusbiomin ja korkeusvyöhykkeen.</p>
+        <form id="faction-form" class="faction-lobby-form">
+            <input type="hidden" id="selected-faction-input" name="faction" required>
+            <div id="faction-card-grid" class="faction-card-grid">
+                {% for i, faction in enumerate(factions) %}
+                <button type="button" class="faction-card" data-index="{{ i }}" data-faction-name="{{ faction.name }}" data-bonus="{{ faction.bonus }}">
+                    <span class="faction-card-emblem" aria-hidden="true">🏳️</span>
+                    <span class="faction-card-head">
+                        <strong class="faction-card-title">{{ faction.name }}</strong>
+                        <small class="faction-card-role">Heimo</small>
+                    </span>
+                    <span class="faction-card-affinity">🌍 Tuntematon ympäristö</span>
+                    <span class="faction-card-spec">{{ faction.bonus }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="setup-preview-panel">
+                <div class="setup-preview-topline">
+                    <h3 id="setup-preview-name">Heimoesikatselu</h3>
+                    <p id="setup-preview-specialization">Valitse kortti nähdäksesi maailman aloitusalueen.</p>
+                </div>
+                <div class="setup-preview-map-wrap">
+                    <svg id="setup-preview-map" aria-label="Aloitusbiomin karttaesikatselu"></svg>
+                </div>
+                <div class="setup-preview-meta">
+                    <span id="setup-preview-terrain" class="preview-chip">Biome: -</span>
+                    <span id="setup-preview-elevation" class="preview-chip">Korkeus: -</span>
+                    <span id="setup-preview-affinity" class="preview-chip">Affiniteetti: -</span>
+                </div>
+            </div>
+            <button id="start-game-button" type="submit" class="start-lobby-button">Aloita maailma valitulla heimolla</button>
         </form>
     </div>
 
     <div id="game" class="container" style="display: none;">
-        <h2>Peli - Heimo: <span id="player-faction"></span></h2>
-        <div id="board"></div>
-        <div id="controls">
-            <button id="attack-btn">Hyökkää</button>
-            <button id="diplomacy-btn">Diplomatia</button>
+        <div class="status-card topbar-card">
+            <div class="topbar-grid">
+                <p>Heimo: <strong id="player-faction"></strong></p>
+                <p>Vuoro: <strong id="turn">1</strong></p>
+                <p>Vaihe: <strong id="phase">-</strong></p>
+                <p>Vuorossa: <strong id="turn-owner">-</strong></p>
+            </div>
+            <p id="phase-help" class="help-text">-</p>
+            <div class="topbar-actions">
+                <button id="next-phase-button" type="button">Seuraava vaihe</button>
+                <button id="end-turn-button" type="button">Lopeta vuoro</button>
+                <button id="new-game-button" type="button">Uusi peli</button>
+            </div>
         </div>
-        <div id="messages"></div>
-        <p>Vuoro: <span id="turn">0</span></p>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Resurssit</h3>
+                <ul id="resources" class="resource-list"></ul>
+            </div>
+            <div class="status-card">
+                <h3>Voittotavoitteet</h3>
+                <ul id="victory-progress" class="victory-list"></ul>
+                <p id="winner-banner" class="winner-banner hidden"></p>
+            </div>
+            <div class="status-card">
+                <h3>Aktiivinen yksikkö</h3>
+                <div id="selected-unit-info">Valitse oma yksikkö kartalta.</div>
+                <h4>Valittu heksi</h4>
+                <div id="selected-hex-info">Valitse heksi nähdäksesi tiedot.</div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Korttikäsi</h3>
+            <div id="card-hand" class="card-hand"></div>
+            <div class="card-actions">
+                <button id="draw-card-button" type="button">Nosta kortti</button>
+                <button id="play-card-button" type="button">Pelaa valittu kortti</button>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Civilization-tyylinen heksakartta</h3>
+            <div class="board-header">
+                <div class="board-zoom">
+                    <label for="board-zoom-range">Hex-koko</label>
+                    <input id="board-zoom-range" type="range" min="22" max="38" step="1" value="28">
+                    <span id="board-zoom-value">28px</span>
+                </div>
+            </div>
+            <div id="controls" class="controls phase-controls"></div>
+            <div id="board-wrapper">
+                <div id="board" aria-label="civilization-hex-map"></div>
+            </div>
+            <div class="terrain-legend" aria-label="biome-legend">
+                <span><i class="legend-swatch biome-forest"></i>Metsä</span>
+                <span><i class="legend-swatch biome-mountain"></i>Vuoristo</span>
+                <span><i class="legend-swatch biome-plains"></i>Tasanko</span>
+                <span><i class="legend-swatch biome-desert"></i>Aavikko</span>
+                <span><i class="legend-swatch biome-water"></i>Järvi/Vesi</span>
+            </div>
+            <p class="help-text">Klikkaa omaa yksikköä, sitten liike- tai hyökkäyskohdetta.</p>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Rakennukset ja rekrytointi</h3>
+                <div class="controls build-controls">
+                    <button type="button" data-action="build_camp">Rakenna leiri</button>
+                    <button type="button" data-action="build_market">Rakenna markkina</button>
+                    <button type="button" data-action="build_fortress">Rakenna linnoitus</button>
+                    <button type="button" data-action="recruit_infantry">Rekrytoi jalkaväki</button>
+                    <button type="button" data-action="recruit_cavalry">Rekrytoi ratsuväki</button>
+                    <button type="button" data-action="recruit_merchant">Rekrytoi kauppias</button>
+                </div>
+            </div>
+            <div class="status-card">
+                <h3>Heimot ja pelinappulat</h3>
+                <div id="faction-pieces" class="faction-pieces"></div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>Taistelunäkymä</h3>
+            <div id="battle-view" class="battle-view">
+                <p class="battle-help">Taisteluloki näyttää nopat, modifikaattorit ja maastobonukset.</p>
+                <div class="battle-grid">
+                    <div class="battle-side">
+                        <h4>Hyökkääjä</h4>
+                        <p id="battle-attacker-name">-</p>
+                        <p>Nopat: <span id="battle-attack-rolls">-</span></p>
+                        <p>Summa: <span id="battle-attack-total">-</span></p>
+                    </div>
+                    <div class="battle-side">
+                        <h4>Puolustaja</h4>
+                        <p id="battle-defender-name">-</p>
+                        <p>Nopat: <span id="battle-defense-rolls">-</span></p>
+                        <p>Summa: <span id="battle-defense-total">-</span></p>
+                    </div>
+                </div>
+                <p id="battle-result" class="battle-result">Ei taistelua vielä.</p>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Battle log</h3>
+                <ul id="battle-log" class="log-list"></ul>
+            </div>
+            <div class="status-card">
+                <h3>Event log</h3>
+                <ul id="event-log" class="log-list"></ul>
+            </div>
+        </div>
+
+        <div id="messages" class="message-log"></div>
     </div>
 
+    <div id="unit-tooltip" class="map-tooltip hidden"></div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
