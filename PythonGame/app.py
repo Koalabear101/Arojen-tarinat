@@ -23,7 +23,7 @@ TURN_PHASES = [
 ]
 
 PHASE_ACTIONS = {
-    "Resurssivaihe": ["collect_resources", "next_phase", "end_turn"],
+    "Resurssivaihe": ["collect_resources", "hex_click", "next_phase", "end_turn"],
     "Korttivaihe": ["draw_card", "play_card", "next_phase", "end_turn"],
     "Liikevaihe": ["hex_click", "move", "next_phase", "end_turn"],
     "Taisteluvaihe": ["hex_click", "attack", "next_phase", "end_turn"],
@@ -202,6 +202,7 @@ game_state = {
 
 def _debug_log(hypothesis_id, location, message, data=None):
     try:
+        os.makedirs("/opt/cursor/logs", exist_ok=True)
         open("/opt/cursor/logs/debug.log", "a").write(
             json.dumps(
                 {

@@ -100,6 +100,16 @@ class TestBoardGameTurnFlow(unittest.TestCase):
         self.assertIsNotNone(payload["selected_unit"])
         self.assertGreater(len(payload["reachable_hexes"]), 0)
 
+    def test_hex_click_in_resource_phase_updates_selected_hex(self):
+        response = self.client.post("/take_action", json={"action": "hex_click", "x": 2, "y": 2})
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["phase"], "Resurssivaihe")
+        self.assertNotIn("ei ole sallittu", payload["message"])
+        self.assertIsNotNone(payload["selected_hex"])
+        self.assertEqual(payload["selected_hex"]["x"], 2)
+        self.assertEqual(payload["selected_hex"]["y"], 2)
+
     def test_end_turn_advances_turn_and_runs_ai(self):
         response = self.client.post("/take_action", json={"action": "end_turn"})
         payload = response.get_json()
