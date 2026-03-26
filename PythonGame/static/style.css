@@ -374,7 +374,7 @@ button:disabled {
     color: #4f4736;
 }
 
-.faction-grid {
+.faction-pieces {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 10px;
@@ -414,7 +414,7 @@ button:disabled {
     margin-right: 6px;
 }
 
-.battle-panel {
+.battle-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px;

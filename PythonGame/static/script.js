@@ -136,7 +136,7 @@ function renderVictoryProgress(progress, goals, winner) {
 }
 
 function renderFactionTokens(factionsState) {
-    const container = document.getElementById("faction-tokens");
+    const container = document.getElementById("faction-pieces");
     if (!container) {
         return;
     }
@@ -182,7 +182,7 @@ function renderFactionTokens(factionsState) {
 }
 
 function renderBattleView(battle) {
-    const panel = document.getElementById("battle-panel");
+    const panel = document.getElementById("battle-view");
     const result = document.getElementById("battle-result");
     if (!panel || !result) {
         return;
@@ -193,21 +193,16 @@ function renderBattleView(battle) {
         result.textContent = "Taistelua ei vielä käyty.";
         return;
     }
-    panel.style.display = "grid";
+    panel.style.display = "block";
 
     document.getElementById("battle-attacker-name").textContent = last.attacker_faction;
-    document.getElementById("battle-attacker-unit").textContent = `${last.attacker_unit}`;
-    document.getElementById("battle-attacker-power").textContent = last.attack_total;
-    document.getElementById("battle-attack-die").textContent = last.attack_die;
+    document.getElementById("battle-attack-rolls").textContent = `🎲 ${last.attack_die}`;
+    document.getElementById("battle-attack-total").textContent = `${last.attack_total} (${last.attacker_unit})`;
 
     document.getElementById("battle-defender-name").textContent = last.defender_faction;
-    document.getElementById("battle-defender-unit").textContent = `${last.defender_unit}`;
-    document.getElementById("battle-defender-power").textContent = last.defense_total;
-    document.getElementById("battle-defense-die").textContent = last.defense_die;
-
-    document.getElementById("battle-damage").textContent = last.damage_to_defender;
-    document.getElementById("battle-defense-after").textContent = `Vastahyökkäysvahinko hyökkääjälle: ${last.damage_to_attacker}`;
-    result.textContent = `Tulos: ${last.outcome}`;
+    document.getElementById("battle-defense-rolls").textContent = `🎲 ${last.defense_die}`;
+    document.getElementById("battle-defense-total").textContent = `${last.defense_total} (${last.defender_unit})`;
+    result.textContent = `Tulos: ${last.outcome} | Vahinko puolustajalle: ${last.damage_to_defender} | Vastahyökkäys: ${last.damage_to_attacker}`;
 }
 
 function renderControls(actions, actionLabels, winner) {
