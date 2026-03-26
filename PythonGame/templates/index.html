@@ -51,24 +51,46 @@
     </div>
 
     <div id="game" class="container" style="display: none;">
-        <h2>Heimo: <span id="player-faction"></span></h2>
-        <div class="status-grid">
-            <div class="status-card">
-                <h3>Vuorotila</h3>
-                <p>Vuoro: <span id="turn">1</span></p>
+        <div class="status-card topbar-card">
+            <div class="topbar-grid">
+                <p>Heimo: <strong id="player-faction"></strong></p>
+                <p>Vuoro: <strong id="turn">1</strong></p>
                 <p>Vaihe: <strong id="phase">-</strong></p>
-                <p>Painopiste: <span id="focus">-</span></p>
+                <p>Vuorossa: <strong id="turn-owner">-</strong></p>
             </div>
+            <p id="phase-help" class="help-text">-</p>
+            <div class="topbar-actions">
+                <button id="next-phase-button" type="button">Seuraava vaihe</button>
+                <button id="end-turn-button" type="button">Lopeta vuoro</button>
+                <button id="new-game-button" type="button">Uusi peli</button>
+            </div>
+        </div>
+
+        <div class="status-grid">
             <div class="status-card">
                 <h3>Resurssit</h3>
                 <ul id="resources" class="resource-list"></ul>
             </div>
+            <div class="status-card">
+                <h3>Voittotavoitteet</h3>
+                <ul id="victory-progress" class="victory-list"></ul>
+                <p id="winner-banner" class="winner-banner hidden"></p>
+            </div>
+            <div class="status-card">
+                <h3>Aktiivinen yksikkö</h3>
+                <div id="selected-unit-info">Valitse oma yksikkö kartalta.</div>
+                <h4>Valittu heksi</h4>
+                <div id="selected-hex-info">Valitse heksi nähdäksesi tiedot.</div>
+            </div>
         </div>
 
         <div class="status-card">
-            <h3>Voittotiet</h3>
-            <ul id="victory-progress" class="victory-list"></ul>
-            <p id="winner-banner" class="winner-banner hidden"></p>
+            <h3>Korttikäsi</h3>
+            <div id="card-hand" class="card-hand"></div>
+            <div class="card-actions">
+                <button id="draw-card-button" type="button">Nosta kortti</button>
+                <button id="play-card-button" type="button">Pelaa valittu kortti</button>
+            </div>
         </div>
 
         <div class="status-card">
@@ -80,6 +102,7 @@
                     <span id="board-zoom-value">28px</span>
                 </div>
             </div>
+            <div id="controls" class="controls phase-controls"></div>
             <div id="board-wrapper">
                 <div id="board" aria-label="civilization-hex-map"></div>
             </div>
@@ -90,23 +113,31 @@
                 <span><i class="legend-swatch biome-desert"></i>Aavikko</span>
                 <span><i class="legend-swatch biome-water"></i>Järvi/Vesi</span>
             </div>
-            <p class="help-text">Klikkaa heksiä valitaksesi ruudun (sininen korostus).</p>
+            <p class="help-text">Klikkaa omaa yksikköä, sitten liike- tai hyökkäyskohdetta.</p>
         </div>
 
-        <div class="status-card">
-            <h3>Heimot ja pelinappulat</h3>
-            <div id="faction-pieces" class="faction-pieces"></div>
-        </div>
-
-        <div class="status-card">
-            <h3>Vaiheen toiminnot</h3>
-            <div id="controls" class="controls"></div>
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Rakennukset ja rekrytointi</h3>
+                <div class="controls build-controls">
+                    <button type="button" data-action="build_camp">Rakenna leiri</button>
+                    <button type="button" data-action="build_market">Rakenna markkina</button>
+                    <button type="button" data-action="build_fortress">Rakenna linnoitus</button>
+                    <button type="button" data-action="recruit_infantry">Rekrytoi jalkaväki</button>
+                    <button type="button" data-action="recruit_cavalry">Rekrytoi ratsuväki</button>
+                    <button type="button" data-action="recruit_merchant">Rekrytoi kauppias</button>
+                </div>
+            </div>
+            <div class="status-card">
+                <h3>Heimot ja pelinappulat</h3>
+                <div id="faction-pieces" class="faction-pieces"></div>
+            </div>
         </div>
 
         <div class="status-card">
             <h3>Taistelunäkymä</h3>
             <div id="battle-view" class="battle-view">
-                <p class="battle-help">Hyökkäys näyttää hyökkäys-/puolustusnopat ja korostaa taisteluheksit kartalla.</p>
+                <p class="battle-help">Taisteluloki näyttää nopat, modifikaattorit ja maastobonukset.</p>
                 <div class="battle-grid">
                     <div class="battle-side">
                         <h4>Hyökkääjä</h4>
@@ -122,6 +153,17 @@
                     </div>
                 </div>
                 <p id="battle-result" class="battle-result">Ei taistelua vielä.</p>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Battle log</h3>
+                <ul id="battle-log" class="log-list"></ul>
+            </div>
+            <div class="status-card">
+                <h3>Event log</h3>
+                <ul id="event-log" class="log-list"></ul>
             </div>
         </div>
 

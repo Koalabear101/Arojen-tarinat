@@ -521,6 +521,133 @@ button:disabled {
     margin-top: 0;
 }
 
+.mvp-top-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.mvp-side-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.phase-help {
+    margin: 6px 0 0;
+    color: #584f3f;
+    font-size: 0.88rem;
+}
+
+.active-unit,
+.selected-hex {
+    margin-top: 8px;
+    border-radius: 10px;
+    padding: 8px;
+    background: rgba(255, 250, 241, 0.85);
+    border: 1px solid rgba(112, 98, 75, 0.25);
+    font-size: 0.86rem;
+}
+
+.active-unit .label,
+.selected-hex .label {
+    color: #5e5544;
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(91, 80, 62, 0.3);
+    padding: 4px 10px;
+    background: rgba(255, 252, 246, 0.88);
+    font-size: 0.79rem;
+    color: #4d4538;
+}
+
+.card-hand {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.card-item {
+    border-radius: 10px;
+    border: 1px solid rgba(101, 90, 71, 0.35);
+    background: rgba(250, 244, 231, 0.9);
+    padding: 8px;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.card-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(44, 36, 27, 0.18);
+}
+
+.card-item.selected {
+    border-color: rgba(72, 128, 203, 0.9);
+    box-shadow: 0 0 0 2px rgba(104, 162, 255, 0.25);
+}
+
+.card-item h4 {
+    margin: 0;
+    font-size: 0.92rem;
+}
+
+.card-item .meta {
+    color: #6b5f4b;
+    font-size: 0.75rem;
+    margin-top: 2px;
+}
+
+.card-item .desc {
+    font-size: 0.82rem;
+    color: #4f4739;
+    margin-top: 6px;
+}
+
+.card-item .cost {
+    font-size: 0.78rem;
+    color: #5f5748;
+    margin-top: 6px;
+}
+
+.log-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.log-list li {
+    font-size: 0.83rem;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(112, 98, 73, 0.25);
+    color: #4f4738;
+}
+
+.log-list li:last-child {
+    border-bottom: none;
+}
+
+.empty-help {
+    color: #6c6250;
+    font-size: 0.84rem;
+}
+
 .setup-lobby {
     position: relative;
     overflow: hidden;

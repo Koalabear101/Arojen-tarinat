@@ -35,6 +35,13 @@ class TestUIStateApiShape(unittest.TestCase):
         self.assertIn("shoreline", payload["hexes"][0][0])
         self.assertIn("elevation_band", payload["hexes"][0][0])
         self.assertIn("terrain_role", payload["hexes"][0][0])
+        self.assertIn("cards", payload)
+        self.assertIn("controlled_hexes", payload)
+        self.assertIn("selected_unit", payload)
+        self.assertIn("selected_hex", payload)
+        self.assertIn("reachable_hexes", payload)
+        self.assertIn("attackable_hexes", payload)
+        self.assertIn("logs", payload)
 
     def test_faction_spawn_positions_exposed(self):
         response = self.client.get("/get_state")

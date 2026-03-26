@@ -13,48 +13,103 @@ app = Flask(__name__)
 app.jinja_env.globals.update(enumerate=enumerate)
 
 TURN_PHASES = [
-    "Suunnitteluvaihe",
-    "Toimintavaihe",
-    "Hallintovaihe",
-    "Tapahtumavaihe",
+    "Resurssivaihe",
+    "Korttivaihe",
+    "Liikevaihe",
+    "Taisteluvaihe",
+    "Hallintavaihe",
+    "Vuoron lopetus",
 ]
 
 PHASE_ACTIONS = {
-    "Suunnitteluvaihe": ["draw_strategy", "set_focus_conquest", "set_focus_trade", "set_focus_diplomacy"],
-    "Toimintavaihe": ["move", "attack", "build", "trade", "diplomacy"],
-    "Hallintovaihe": ["collect_resources", "pay_upkeep", "research"],
-    "Tapahtumavaihe": ["resolve_event"],
+    "Resurssivaihe": ["collect_resources", "next_phase", "end_turn"],
+    "Korttivaihe": ["draw_card", "play_card", "next_phase", "end_turn"],
+    "Liikevaihe": ["hex_click", "move", "next_phase", "end_turn"],
+    "Taisteluvaihe": ["hex_click", "attack", "next_phase", "end_turn"],
+    "Hallintavaihe": [
+        "recruit_infantry",
+        "recruit_cavalry",
+        "recruit_merchant",
+        "build_camp",
+        "build_market",
+        "build_fortress",
+        "research",
+        "next_phase",
+        "end_turn",
+    ],
+    "Vuoron lopetus": ["end_turn", "next_phase"],
 }
 
 ACTION_LABELS = {
-    "draw_strategy": "Vedä strategiakortti",
-    "set_focus_conquest": "Painopiste: Valloitus",
-    "set_focus_trade": "Painopiste: Kauppa",
-    "set_focus_diplomacy": "Painopiste: Diplomatia",
+    "collect_resources": "Kerää resurssit",
+    "draw_card": "Nosta kortti",
+    "play_card": "Pelaa valittu kortti",
+    "hex_click": "Valitse heksi",
+    "recruit_infantry": "Rekrytoi jalkaväki",
+    "recruit_cavalry": "Rekrytoi ratsuväki",
+    "recruit_merchant": "Rekrytoi kauppias",
+    "build_camp": "Rakenna leiri",
+    "build_market": "Rakenna markkina",
+    "build_fortress": "Rakenna linnoitus",
+    "research": "Tutki teknologiaa",
+    "next_phase": "Seuraava vaihe",
+    "end_turn": "Lopeta vuoro",
+    # Legacy aliases for compatibility
+    "end_phase": "Lopeta vaihe",
     "move": "Liiku",
     "attack": "Hyökkää",
     "build": "Rakenna",
     "trade": "Käy kauppaa",
     "diplomacy": "Neuvottele",
-    "collect_resources": "Kerää resurssit",
-    "pay_upkeep": "Maksa ylläpito",
-    "research": "Kehitä teknologiaa",
-    "resolve_event": "Ratkaise tapahtuma",
-    "end_phase": "Lopeta vaihe",
+    "draw_strategy": "Vedä strategiakortti",
 }
 
 VICTORY_GOALS = {
-    "military": {"target": 12, "title": "Sotilaallinen voitto"},
-    "economic": {"target": 12, "title": "Ekonominen voitto"},
-    "cultural": {"target": 10, "title": "Kulttuurinen voitto"},
-    "technology": {"target": 10, "title": "Teknologinen voitto"},
+    "military_elimination": {"target": 1, "title": "Sotilaallinen voitto (vihollinen tuhottu)"},
+    "military_control": {"target": 28, "title": "Sotilaallinen voitto (aluehallinta)"},
+    "economic": {"target": 30, "title": "Talousvoitto"},
+    "technology": {"target": 5, "title": "Teknologiavoitto"},
 }
 
-EVENT_SEQUENCE = [
-    "Silkkitien satokausi: +2 kultaa",
-    "Klaanikokous: +1 kulttuuripiste",
-    "Sepät keksivät uusia varusteita: +1 teknologiapiste",
-    "Rajakahakka: +1 sotilaspiste",
+UNIT_RECRUIT_COSTS = {
+    "infantry": {"gold": 1, "food": 1},
+    "cavalry": {"gold": 1, "food": 1, "horses": 2},
+    "merchant": {"gold": 2},
+}
+
+BUILDING_COSTS = {
+    "camp": {"gold": 2, "food": 1, "artisans": 1},
+    "market": {"gold": 2, "artisans": 1},
+    "fortress": {"gold": 2, "artisans": 2},
+}
+
+BUILDING_LABELS = {
+    "camp": "Leiri",
+    "market": "Markkina",
+    "fortress": "Linnoitus",
+}
+
+CARD_LIBRARY = [
+    {"id": "str_1", "name": "Joenylitys", "kind": "strategy", "cost": {"gold": 1}, "effect": "ignore_river_penalty_turn", "desc": "Ohita jokirangaistus tällä vuorolla."},
+    {"id": "str_2", "name": "Vuoristoreitit", "kind": "strategy", "cost": {"artisans": 1}, "effect": "mountain_move_discount_turn", "desc": "Vuoristoliikekustannus pienenee vuoron ajaksi."},
+    {"id": "str_3", "name": "Mongolivyöry", "kind": "strategy", "cost": {"horses": 1}, "effect": "attack_bonus_3_turn", "desc": "+3 hyökkäys seuraavaan taisteluun."},
+    {"id": "str_4", "name": "Sivustaisku", "kind": "strategy", "cost": {"gold": 1}, "effect": "cavalry_attack_bonus_2_turn", "desc": "Ratsuväelle +2 hyökkäys vuoron ajaksi."},
+    {"id": "str_5", "name": "Kilpimuuri", "kind": "strategy", "cost": {"food": 1}, "effect": "infantry_defense_bonus_2_turn", "desc": "Jalkaväelle +2 puolustus vuoron ajaksi."},
+    {"id": "dip_1", "name": "Kauppasopimus", "kind": "diplomacy", "cost": {"gold": 1}, "effect": "gold_per_turn_1_perm", "desc": "+1 kulta jokaisessa resurssivaiheessa."},
+    {"id": "dip_2", "name": "Rajalupaus", "kind": "diplomacy", "cost": {"food": 1}, "effect": "ai_attack_penalty_turn", "desc": "AI:n hyökkäysvoima -1 vuoron ajaksi."},
+    {"id": "dip_3", "name": "Karavaanireitti", "kind": "diplomacy", "cost": {"gold": 1}, "effect": "merchant_income_bonus_perm", "desc": "Kauppiaat tuottavat +1 kultaa vuorossa."},
+    {"id": "dip_4", "name": "Liittouman lähettiläs", "kind": "diplomacy", "cost": {"artisans": 1}, "effect": "diplomacy_points_1", "desc": "+1 talouspiste ja +1 teknologiapiste."},
+    {"id": "dip_5", "name": "Verovapaus", "kind": "diplomacy", "cost": {}, "effect": "free_market_build_turn", "desc": "Seuraava markkina ilman kultakustannusta."},
+    {"id": "tech_1", "name": "Yhdistetty jousi", "kind": "technology", "cost": {"artisans": 1}, "effect": "cavalry_attack_bonus_1_perm", "desc": "Pysyvä +1 ratsuväen hyökkäys."},
+    {"id": "tech_2", "name": "Rautakärjet", "kind": "technology", "cost": {"artisans": 1, "gold": 1}, "effect": "infantry_attack_bonus_1_perm", "desc": "Pysyvä +1 jalkaväen hyökkäys."},
+    {"id": "tech_3", "name": "Piiritystekniikka", "kind": "technology", "cost": {"artisans": 1}, "effect": "fortress_defense_ignore_1_perm", "desc": "Hyökkäys sivuuttaa 1 pisteen linnoitusbonuksesta."},
+    {"id": "tech_4", "name": "Arkistot", "kind": "technology", "cost": {"artisans": 1, "food": 1}, "effect": "tech_progress_1", "desc": "+1 teknologiapiste."},
+    {"id": "tech_5", "name": "Universaali tiede", "kind": "technology", "cost": {"artisans": 2, "gold": 2}, "effect": "universal_science", "desc": "Laukaisee teknologiavoiton ehdon."},
+    {"id": "res_1", "name": "Viljavarasto", "kind": "resource", "cost": {}, "effect": "gain_food_2", "desc": "+2 ruokaa."},
+    {"id": "res_2", "name": "Hevoslauma", "kind": "resource", "cost": {}, "effect": "gain_horses_2", "desc": "+2 hevosta."},
+    {"id": "res_3", "name": "Kaivoslöytö", "kind": "resource", "cost": {}, "effect": "gain_gold_3", "desc": "+3 kultaa."},
+    {"id": "res_4", "name": "Käsityöpajat", "kind": "resource", "cost": {"gold": 1}, "effect": "gain_artisans_2", "desc": "+2 käsityöläistä."},
+    {"id": "res_5", "name": "Sotasaalis", "kind": "resource", "cost": {}, "effect": "gain_mixed_2", "desc": "+1 kulta ja +1 ruoka."},
 ]
 
 UNIT_TYPES = {
@@ -130,27 +185,87 @@ game_state = {
     "spawn_points": {},
     "next_unit_id": 1,
     "battle_event_id": 0,
+    "selected_unit": None,
+    "selected_hex": None,
+    "reachable_hexes": [],
+    "attackable_hexes": [],
+    "controlled_hexes": {},
+    "buildings": [],
+    "cards": {"deck": [], "hand": [], "discard": [], "last_played": None},
+    "effects": {},
+    "phase_flags": {},
+    "log": {"battle": [], "event": []},
+    "universal_science_unlocked": False,
 }
 
 
 def _starting_resources(faction_name):
-    base = {"horses": 3, "gold": 3, "food": 3, "artisans": 2, "cattle": 3}
+    base = {"horses": 3, "gold": 3, "food": 4, "artisans": 2}
     if faction_name == "Mongoli-heimo":
         base["horses"] += 2
-        base["cattle"] += 1
     elif faction_name == "Kiinan dynastia":
         base["artisans"] += 2
         base["gold"] += 1
-        game_state["victory_progress"]["technology"] += 1
     elif faction_name == "Persialainen valtakunta":
         base["gold"] += 2
-        base["cattle"] += 1
-        game_state["victory_progress"]["economic"] += 1
     elif faction_name == "Venäläiset ruhtinaskunnat":
         base["food"] += 2
         base["horses"] -= 1
-        game_state["victory_progress"]["military"] += 1
     return base
+
+
+def _ensure_victory_progress_keys():
+    for key in ["military", "economic", "cultural", "technology"]:
+        if key not in game_state["victory_progress"]:
+            game_state["victory_progress"][key] = 0
+
+
+def _init_card_state():
+    deck = [dict(card) for card in CARD_LIBRARY]
+    random.shuffle(deck)
+    return {"deck": deck, "hand": [], "discard": [], "last_played": None}
+
+
+def _init_effects():
+    return {
+        "ignore_river_penalty_turn": False,
+        "mountain_move_discount_turn": False,
+        "attack_bonus_3_turn": False,
+        "cavalry_attack_bonus_2_turn": False,
+        "infantry_defense_bonus_2_turn": False,
+        "gold_per_turn_1_perm": False,
+        "ai_attack_penalty_turn": False,
+        "merchant_income_bonus_perm": False,
+        "free_market_build_turn": False,
+        "cavalry_attack_bonus_1_perm": False,
+        "infantry_attack_bonus_1_perm": False,
+        "fortress_defense_ignore_1_perm": False,
+    }
+
+
+def _reset_runtime_selection():
+    game_state["selected_unit"] = None
+    game_state["selected_hex"] = None
+    game_state["reachable_hexes"] = []
+    game_state["attackable_hexes"] = []
+
+
+def _sync_victory_progress_keys():
+    for key in VICTORY_GOALS.keys():
+        if key not in game_state["victory_progress"]:
+            game_state["victory_progress"][key] = 0
+
+
+def _clear_turn_temporary_effects():
+    for key in [
+        "ignore_river_penalty_turn",
+        "mountain_move_discount_turn",
+        "attack_bonus_3_turn",
+        "cavalry_attack_bonus_2_turn",
+        "infantry_defense_bonus_2_turn",
+        "ai_attack_penalty_turn",
+    ]:
+        game_state["effects"][key] = False
 
 
 def _current_phase():
@@ -1074,20 +1189,7 @@ def _serialize_hexes():
 
             units = []
             if unit:
-                units.append(
-                    {
-                        "id": unit["id"],
-                        "faction": unit["faction"],
-                        "unit_key": unit["unit_key"],
-                        "type": unit["type"],
-                        "token": unit["token"],
-                        "hp": unit["hp"],
-                        "max_hp": unit["max_hp"],
-                        "strength": unit["strength"],
-                        "defense": unit["defense"],
-                        "side": unit["side"],
-                    }
-                )
+                units.append(_serialize_unit_for_hex(unit, col, row))
 
             highlight = None
             last = game_state["battle"].get("last")
@@ -1149,19 +1251,529 @@ def _serialize_hexes():
     return hexes
 
 
+def _serialize_unit_for_hex(unit, x, y):
+    if not unit:
+        return None
+    role = "Perusyksikkö"
+    move = 2
+    if unit["unit_key"] == "cavalry":
+        role = "Nopea hyökkäys, vahva tasangolla"
+        move = 3
+    elif unit["unit_key"] == "infantry":
+        role = "Kestävä puolustaja"
+        move = 2
+    elif unit["unit_key"] == "chief":
+        role = "Johtajayksikkö, menettäminen kriittinen"
+        move = 2
+    elif unit["unit_key"] == "merchant":
+        role = "Heikko taistelussa, vahva taloudessa"
+        move = 2
+    return {
+        "id": unit["id"],
+        "faction": unit["faction"],
+        "unit_key": unit["unit_key"],
+        "type": unit["type"],
+        "token": unit["token"],
+        "hp": unit["hp"],
+        "max_hp": unit["max_hp"],
+        "strength": unit["strength"],
+        "defense": unit["defense"],
+        "side": unit["side"],
+        "move": move,
+        "role": role,
+        "owner": unit["faction"],
+        "location": {"x": x, "y": y},
+    }
+
+
+def _phase_default_action_done(phase):
+    if phase == "Resurssivaihe":
+        return bool(game_state["phase_flags"].get("resource_collected"))
+    return False
+
+
+def _control_owner_for_hex(col, row):
+    board = game_state["board"]
+    unit = board.board[row][col]
+    if unit:
+        return unit["faction"]
+    for building in game_state.get("buildings", []):
+        if building["x"] == col and building["y"] == row and building["type"] == "camp":
+            return building["faction"]
+    return None
+
+
+def _refresh_controlled_hexes():
+    control = {}
+    for row in range(BOARD_HEIGHT):
+        for col in range(BOARD_WIDTH):
+            owner = _control_owner_for_hex(col, row)
+            if owner:
+                control[f"{col},{row}"] = owner
+    game_state["controlled_hexes"] = control
+
+
+def _unit_move_points(unit):
+    if unit["unit_key"] == "cavalry":
+        return 3
+    return 2
+
+
+def _reachable_cells(start_x, start_y, unit):
+    board = game_state["board"]
+    max_steps = _unit_move_points(unit)
+    seen = {(start_x, start_y): 0}
+    queue = [(start_x, start_y, 0)]
+    reach = []
+    while queue:
+        cx, cy, steps = queue.pop(0)
+        for nx, ny in _axial_neighbors(cx, cy):
+            if not _within(nx, ny, board.width, board.height):
+                continue
+            if _cell_terrain(nx, ny) in {"water", "lake"}:
+                continue
+            cost = 1
+            if _cell_terrain(nx, ny) == "mountain" and not game_state["effects"].get("mountain_move_discount_turn"):
+                cost = 2
+            next_steps = steps + cost
+            if next_steps > max_steps:
+                continue
+            occupant = board.board[ny][nx]
+            if occupant and occupant["faction"] != unit["faction"]:
+                continue
+            if (nx, ny) in seen and seen[(nx, ny)] <= next_steps:
+                continue
+            seen[(nx, ny)] = next_steps
+            queue.append((nx, ny, next_steps))
+            if not occupant:
+                reach.append((nx, ny))
+    return reach
+
+
+def _attackable_cells(start_x, start_y, unit):
+    board = game_state["board"]
+    cells = []
+    for nx, ny in _axial_neighbors(start_x, start_y):
+        if not _within(nx, ny, board.width, board.height):
+            continue
+        occupant = board.board[ny][nx]
+        if occupant and occupant["faction"] != unit["faction"]:
+            cells.append((nx, ny))
+    return cells
+
+
+def _select_unit(col, row):
+    board = game_state["board"]
+    unit = board.board[row][col]
+    if not unit:
+        return "Hexissä ei ole yksikköä."
+    if unit["faction"] != game_state["player_faction"]["name"]:
+        return "Voit valita vain oman heimon yksikön."
+    game_state["selected_unit"] = {"x": col, "y": row, "id": unit["id"]}
+    game_state["selected_hex"] = {"x": col, "y": row}
+    game_state["reachable_hexes"] = [{"x": x, "y": y} for x, y in _reachable_cells(col, row, unit)]
+    game_state["attackable_hexes"] = [{"x": x, "y": y} for x, y in _attackable_cells(col, row, unit)]
+    return f"Valittu yksikkö: {unit['type']} ({col},{row})."
+
+
+def _execute_move(target_x, target_y):
+    selected = game_state.get("selected_unit")
+    if not selected:
+        return "Valitse ensin yksikkö."
+    sx, sy = selected["x"], selected["y"]
+    board = game_state["board"]
+    unit = board.board[sy][sx]
+    if not unit:
+        return "Valittu yksikkö puuttuu."
+    legal = {(entry["x"], entry["y"]) for entry in game_state.get("reachable_hexes", [])}
+    if (target_x, target_y) not in legal:
+        return "Laiton liike: kohde ei ole sallittu."
+    if board.board[target_y][target_x] is not None:
+        return "Kohdeheksi on varattu."
+    board.board[target_y][target_x] = unit
+    board.board[sy][sx] = None
+    _recount_faction_units()
+    _refresh_controlled_hexes()
+    game_state["selected_unit"] = {"x": target_x, "y": target_y, "id": unit["id"]}
+    game_state["selected_hex"] = {"x": target_x, "y": target_y}
+    game_state["reachable_hexes"] = [{"x": x, "y": y} for x, y in _reachable_cells(target_x, target_y, unit)]
+    game_state["attackable_hexes"] = [{"x": x, "y": y} for x, y in _attackable_cells(target_x, target_y, unit)]
+    return f"{unit['type']} liikkui heksiin ({target_x},{target_y})."
+
+
+def _defense_bonus_at(col, row):
+    bonus = 0
+    terrain = _cell_terrain(col, row)
+    if terrain in {"forest", "mountain"}:
+        bonus += 1
+    for building in game_state.get("buildings", []):
+        if building["x"] == col and building["y"] == row and building["type"] == "fortress":
+            bonus += 2
+    return bonus
+
+
+def _resolve_targeted_attack(attacker_x, attacker_y, defender_x, defender_y):
+    board = game_state["board"]
+    attacker = board.board[attacker_y][attacker_x]
+    defender = board.board[defender_y][defender_x]
+    if not attacker or not defender:
+        return "Taistelu epäonnistui: yksiköt puuttuvat."
+    if defender["faction"] == attacker["faction"]:
+        return "Et voi hyökätä omaan yksikköön."
+
+    attack_bonus = 0
+    defense_bonus = _defense_bonus_at(defender_x, defender_y)
+    if game_state["effects"].get("attack_bonus_3_turn"):
+        attack_bonus += 3
+        game_state["effects"]["attack_bonus_3_turn"] = False
+    if game_state["effects"].get("cavalry_attack_bonus_2_turn") and attacker["unit_key"] == "cavalry":
+        attack_bonus += 2
+    if game_state["effects"].get("cavalry_attack_bonus_1_perm") and attacker["unit_key"] == "cavalry":
+        attack_bonus += 1
+    if game_state["effects"].get("infantry_attack_bonus_1_perm") and attacker["unit_key"] == "infantry":
+        attack_bonus += 1
+    if game_state["effects"].get("fortress_defense_ignore_1_perm") and defense_bonus > 0:
+        defense_bonus = max(0, defense_bonus - 1)
+    if game_state["effects"].get("infantry_defense_bonus_2_turn") and defender["unit_key"] == "infantry":
+        defense_bonus += 2
+    if _cell_terrain(attacker_x, attacker_y) == "plains" and attacker["unit_key"] == "cavalry":
+        attack_bonus += 1
+
+    attack_die = random.randint(1, 6)
+    defense_die = random.randint(1, 6)
+    attack_total = attacker["strength"] + attack_bonus + attack_die
+    defense_total = defender["defense"] + defense_bonus + defense_die
+    game_state["battle_event_id"] += 1
+    report = {
+        "attacker_faction": attacker["faction"],
+        "defender_faction": defender["faction"],
+        "attacker_unit": attacker["type"],
+        "defender_unit": defender["type"],
+        "attack_die": attack_die,
+        "defense_die": defense_die,
+        "attack_total": attack_total,
+        "defense_total": defense_total,
+        "attack_modifier": attack_bonus,
+        "defense_modifier": defense_bonus,
+        "terrain_bonus_defender": _defense_bonus_at(defender_x, defender_y),
+        "damage_to_defender": 0,
+        "damage_to_attacker": 0,
+        "outcome": "torjunta",
+        "event_id": game_state["battle_event_id"],
+        "battle_positions": {"attacker": {"x": attacker_x, "y": attacker_y}, "defender": {"x": defender_x, "y": defender_y}},
+    }
+    if attack_total > defense_total:
+        damage = max(1, attack_total - defense_total)
+        defender["hp"] -= damage
+        report["damage_to_defender"] = damage
+        report["outcome"] = "osuma"
+        game_state["victory_progress"]["military"] += 1
+        if defender["hp"] <= 0:
+            board.board[defender_y][defender_x] = None
+            report["outcome"] = "yksikkö tuhottu"
+            game_state["victory_progress"]["military"] += 2
+    else:
+        retaliation = max(0, defense_total - attack_total)
+        if retaliation > 0:
+            attacker["hp"] -= retaliation
+            report["damage_to_attacker"] = retaliation
+            if attacker["hp"] <= 0:
+                board.board[attacker_y][attacker_x] = None
+                report["outcome"] = "hyökkääjä kaatui"
+    _record_battle(report)
+    game_state["log"]["battle"].insert(0, report)
+    game_state["log"]["battle"] = game_state["log"]["battle"][:16]
+    _recount_faction_units()
+    _refresh_controlled_hexes()
+    if _cell_terrain(attacker_x, attacker_y) == "river":
+        game_state["effects"]["ignore_river_penalty_turn"] = False
+    return f"Taistelu: {report['outcome']} (ATK {attack_total} vs DEF {defense_total})."
+
+
+def _resolve_hex_click(col, row):
+    board = game_state["board"]
+    if not _within(col, row, board.width, board.height):
+        return "Klikattu heksi on kartan ulkopuolella."
+    phase = _current_phase()
+    game_state["selected_hex"] = {"x": col, "y": row}
+    unit = board.board[row][col]
+    if unit and unit["faction"] == game_state["player_faction"]["name"]:
+        return _select_unit(col, row)
+    if phase == "Liikevaihe":
+        return _execute_move(col, row)
+    if phase == "Taisteluvaihe":
+        selected = game_state.get("selected_unit")
+        if not selected:
+            return "Valitse ensin hyökkäävä yksikkö."
+        return _resolve_targeted_attack(selected["x"], selected["y"], col, row)
+    return "Heksi valittu."
+
+
+def _draw_cards_for_player(count=1):
+    drawn = []
+    for _ in range(count):
+        if not game_state["cards"]["deck"]:
+            game_state["cards"]["deck"] = game_state["cards"]["discard"][:]
+            random.shuffle(game_state["cards"]["deck"])
+            game_state["cards"]["discard"] = []
+        if not game_state["cards"]["deck"]:
+            break
+        card = game_state["cards"]["deck"].pop()
+        game_state["cards"]["hand"].append(card)
+        drawn.append(card["name"])
+    return drawn
+
+
+def _can_afford(cost):
+    for key, val in cost.items():
+        if game_state["resources"].get(key, 0) < val:
+            return False
+    return True
+
+
+def _pay_cost(cost):
+    for key, val in cost.items():
+        game_state["resources"][key] -= val
+
+
+def _apply_card_effect(card):
+    effect = card["effect"]
+    if effect == "ignore_river_penalty_turn":
+        game_state["effects"]["ignore_river_penalty_turn"] = True
+    elif effect == "mountain_move_discount_turn":
+        game_state["effects"]["mountain_move_discount_turn"] = True
+    elif effect == "attack_bonus_3_turn":
+        game_state["effects"]["attack_bonus_3_turn"] = True
+    elif effect == "cavalry_attack_bonus_2_turn":
+        game_state["effects"]["cavalry_attack_bonus_2_turn"] = True
+    elif effect == "infantry_defense_bonus_2_turn":
+        game_state["effects"]["infantry_defense_bonus_2_turn"] = True
+    elif effect == "gold_per_turn_1_perm":
+        game_state["effects"]["gold_per_turn_1_perm"] = True
+    elif effect == "ai_attack_penalty_turn":
+        game_state["effects"]["ai_attack_penalty_turn"] = True
+    elif effect == "merchant_income_bonus_perm":
+        game_state["effects"]["merchant_income_bonus_perm"] = True
+    elif effect == "diplomacy_points_1":
+        game_state["victory_progress"]["economic"] += 1
+        game_state["victory_progress"]["technology"] += 1
+    elif effect == "free_market_build_turn":
+        game_state["effects"]["free_market_build_turn"] = True
+    elif effect == "cavalry_attack_bonus_1_perm":
+        game_state["effects"]["cavalry_attack_bonus_1_perm"] = True
+    elif effect == "infantry_attack_bonus_1_perm":
+        game_state["effects"]["infantry_attack_bonus_1_perm"] = True
+    elif effect == "fortress_defense_ignore_1_perm":
+        game_state["effects"]["fortress_defense_ignore_1_perm"] = True
+    elif effect == "tech_progress_1":
+        game_state["victory_progress"]["technology"] += 1
+    elif effect == "universal_science":
+        game_state["universal_science_unlocked"] = True
+    elif effect == "gain_food_2":
+        game_state["resources"]["food"] += 2
+    elif effect == "gain_horses_2":
+        game_state["resources"]["horses"] += 2
+    elif effect == "gain_gold_3":
+        game_state["resources"]["gold"] += 3
+    elif effect == "gain_artisans_2":
+        game_state["resources"]["artisans"] += 2
+    elif effect == "gain_mixed_2":
+        game_state["resources"]["gold"] += 1
+        game_state["resources"]["food"] += 1
+
+
+def _play_card(card_id):
+    hand = game_state["cards"]["hand"]
+    card = next((c for c in hand if c["id"] == card_id), None)
+    if not card:
+        return "Korttia ei löytynyt kädestä."
+    if not _can_afford(card.get("cost", {})):
+        return "Kortin pelaaminen epäonnistui: resurssit eivät riitä."
+    _pay_cost(card.get("cost", {}))
+    _apply_card_effect(card)
+    hand.remove(card)
+    game_state["cards"]["discard"].append(card)
+    game_state["cards"]["last_played"] = card
+    game_state["log"]["event"].insert(0, {"type": "card", "name": card["name"], "desc": card["desc"]})
+    game_state["log"]["event"] = game_state["log"]["event"][:20]
+    return f"Kortti pelattu: {card['name']}."
+
+
+def _collect_income(faction_name):
+    control_count = sum(1 for owner in game_state["controlled_hexes"].values() if owner == faction_name)
+    food = max(1, control_count // 6)
+    gold = max(1, control_count // 7)
+    horses = max(0, control_count // 10)
+    artisans = max(1, control_count // 9)
+    if game_state["effects"].get("gold_per_turn_1_perm"):
+        gold += 1
+    merchant_units = len([u for _, _, u in _list_units(faction_name=faction_name) if u["unit_key"] == "merchant"])
+    if merchant_units:
+        gold += merchant_units
+        if game_state["effects"].get("merchant_income_bonus_perm"):
+            gold += merchant_units
+    game_state["resources"]["food"] += food
+    game_state["resources"]["gold"] += gold
+    game_state["resources"]["horses"] += horses
+    game_state["resources"]["artisans"] += artisans
+    return {"food": food, "gold": gold, "horses": horses, "artisans": artisans}
+
+
+def _selected_or_spawn_hex():
+    if game_state.get("selected_hex"):
+        return game_state["selected_hex"]["x"], game_state["selected_hex"]["y"]
+    player = game_state["player_faction"]["name"]
+    pos = game_state["factions_state"][player]["spawn_position"]
+    return pos["x"], pos["y"]
+
+
+def _build_structure(structure_type):
+    col, row = _selected_or_spawn_hex()
+    owner = _control_owner_for_hex(col, row)
+    player = game_state["player_faction"]["name"]
+    if owner != player:
+        return "Rakennus vaatii pelaajan hallitsemalle heksille."
+    for building in game_state["buildings"]:
+        if building["x"] == col and building["y"] == row and building["type"] == structure_type:
+            return "Rakennus on jo tässä heksissä."
+    cost = BUILDING_COSTS[structure_type].copy()
+    if structure_type == "market" and game_state["effects"].get("free_market_build_turn"):
+        cost["gold"] = 0
+        game_state["effects"]["free_market_build_turn"] = False
+    if not _can_afford(cost):
+        return "Rakennuksen rakentaminen epäonnistui: resurssit eivät riitä."
+    _pay_cost(cost)
+    game_state["buildings"].append({"type": structure_type, "faction": player, "x": col, "y": row})
+    game_state["log"]["event"].insert(0, {"type": "build", "name": BUILDING_LABELS[structure_type], "x": col, "y": row})
+    game_state["log"]["event"] = game_state["log"]["event"][:20]
+    _refresh_controlled_hexes()
+    return f"Rakennettu: {BUILDING_LABELS[structure_type]} ({col},{row})."
+
+
+def _recruit_unit(unit_key):
+    cost = UNIT_RECRUIT_COSTS[unit_key]
+    if not _can_afford(cost):
+        return "Rekrytointi epäonnistui: resurssit eivät riitä."
+    player = game_state["player_faction"]["name"]
+    spawn = game_state["factions_state"][player]["spawn_position"]
+    board = game_state["board"]
+    candidates = [(spawn["x"], spawn["y"])]
+    candidates.extend(_axial_neighbors(spawn["x"], spawn["y"]))
+    target = None
+    for x, y in candidates:
+        if not _within(x, y, board.width, board.height):
+            continue
+        if _cell_terrain(x, y) in {"water", "lake"}:
+            continue
+        if board.board[y][x] is None:
+            target = (x, y)
+            break
+    if not target:
+        return "Rekrytointi epäonnistui: spawn-alue täynnä."
+    _pay_cost(cost)
+    board.board[target[1]][target[0]] = _create_unit(player, unit_key, "player")
+    _recount_faction_units()
+    _refresh_controlled_hexes()
+    return f"Rekrytoitu {UNIT_TYPES[unit_key]['label']} heksiin ({target[0]},{target[1]})."
+
+
+def _run_simple_ai_turn():
+    player = game_state["player_faction"]["name"]
+    ai_factions = [name for name in _all_faction_names() if name != player]
+    board = game_state["board"]
+    for faction_name in ai_factions:
+        ai_units = _list_units(faction_name=faction_name)
+        random.shuffle(ai_units)
+        # attack if adjacent weak enemy
+        for x, y, unit in ai_units:
+            targets = []
+            for nx, ny in _axial_neighbors(x, y):
+                if not _within(nx, ny, board.width, board.height):
+                    continue
+                enemy = board.board[ny][nx]
+                if enemy and enemy["faction"] == player:
+                    targets.append((nx, ny, enemy["hp"]))
+            if targets:
+                targets.sort(key=lambda t: t[2])
+                _resolve_targeted_attack(x, y, targets[0][0], targets[0][1])
+                return
+        # else move toward player spawn
+        player_spawn = game_state["factions_state"][player]["spawn_position"]
+        for x, y, unit in ai_units:
+            best = None
+            for nx, ny in _axial_neighbors(x, y):
+                if not _within(nx, ny, board.width, board.height):
+                    continue
+                if _cell_terrain(nx, ny) in {"water", "lake"}:
+                    continue
+                if board.board[ny][nx] is not None:
+                    continue
+                score = abs(nx - player_spawn["x"]) + abs(ny - player_spawn["y"])
+                if best is None or score < best[0]:
+                    best = (score, nx, ny)
+            if best:
+                board.board[best[2]][best[1]] = unit
+                board.board[y][x] = None
+                _recount_faction_units()
+                _refresh_controlled_hexes()
+                return
+
+
+def _normalized_victory_view():
+    goals = {}
+    progress = {}
+    mapping = {
+        "military": "military_control",
+        "economic": "economic",
+        "cultural": "military_elimination",
+        "technology": "technology",
+    }
+    for legacy_key, source_key in mapping.items():
+        goals[legacy_key] = {
+            "target": VICTORY_GOALS[source_key]["target"],
+            "title": VICTORY_GOALS[source_key]["title"],
+        }
+        progress[legacy_key] = int(game_state["victory_progress"].get(source_key, 0))
+    return goals, progress
+
+
 def _game_snapshot(message=""):
-    actions = PHASE_ACTIONS[_current_phase()] + ["end_phase"]
+    phase = _current_phase()
+    actions = PHASE_ACTIONS[phase]
     factions_state = _serialize_factions_state()
     battle_payload = _serialize_battle()
+    board = game_state["board"]
+    selected_unit_payload = None
+    selected_hex_payload = game_state.get("selected_hex")
+    selected_hex_info = None
+    if game_state.get("selected_unit") and board:
+        sx, sy = game_state["selected_unit"]["x"], game_state["selected_unit"]["y"]
+        if _within(sx, sy, board.width, board.height):
+            selected_unit_payload = _serialize_unit_for_hex(board.board[sy][sx], sx, sy)
+    if selected_hex_payload:
+        hx, hy = selected_hex_payload["x"], selected_hex_payload["y"]
+        if board and _within(hx, hy, board.width, board.height):
+            selected_hex_info = {
+                "x": hx,
+                "y": hy,
+                "terrain": _cell_terrain(hx, hy),
+                "elevation": game_state["map"]["hexes"][hy][hx]["elevation"],
+                "owner": game_state["controlled_hexes"].get(f"{hx},{hy}"),
+                "building": next(
+                    (b for b in game_state["buildings"] if b["x"] == hx and b["y"] == hy),
+                    None,
+                ),
+            }
+    victory_goals_view, victory_progress_view = _normalized_victory_view()
     return {
         "status": "ok",
         "message": message,
         "turn": game_state["turn"],
-        "phase": _current_phase(),
+        "phase": phase,
         "focus": game_state["focus"],
         "resources": game_state["resources"],
-        "victory_progress": game_state["victory_progress"],
-        "victory_goals": VICTORY_GOALS,
+        "victory_progress": victory_progress_view,
+        "victory_goals": victory_goals_view,
         "winner": game_state["winner"],
         "board": _serialize_board(),
         "hexes": _serialize_hexes(),
@@ -1177,118 +1789,202 @@ def _game_snapshot(message=""):
         "unit_types": UNIT_TYPES,
         "battle": battle_payload,
         "battle_positions": battle_payload.get("battle_positions"),
+        "selected_unit": selected_unit_payload,
+        "selected_hex": selected_hex_info,
+        "reachable_hexes": game_state.get("reachable_hexes", []),
+        "attackable_hexes": game_state.get("attackable_hexes", []),
+        "controlled_hexes": game_state.get("controlled_hexes", {}),
+        "buildings": game_state.get("buildings", []),
+        "cards": game_state.get("cards", {}),
+        "effects": game_state.get("effects", {}),
+        "logs": game_state.get("log", {"battle": [], "event": []}),
+        "current_turn_owner": game_state["player_faction"]["name"] if game_state["player_faction"] else "",
+        "phase_help": {
+            "Resurssivaihe": "Kerää tulot ja ylläpidä armeija.",
+            "Korttivaihe": "Nosta ja pelaa kortteja.",
+            "Liikevaihe": "Valitse oma yksikkö ja siirrä sallittuun heksiin.",
+            "Taisteluvaihe": "Hyökkää valitulla yksiköllä viereiseen viholliseen.",
+            "Hallintavaihe": "Rekrytoi, rakenna ja tutki.",
+            "Vuoron lopetus": "Lopeta vuoro ja anna AI:n pelata.",
+        }.get(phase, ""),
     }
 
 
 def _set_winner_if_reached():
-    for key, goal in VICTORY_GOALS.items():
-        if game_state["victory_progress"][key] >= goal["target"] and not game_state["winner"]:
-            game_state["winner"] = goal["title"]
-            return True
+    if game_state["winner"]:
+        return True
+    player = game_state["player_faction"]["name"] if game_state["player_faction"] else None
+    if not player:
+        return False
+    enemy_units = [u for _, _, u in _list_units(exclude_faction=player)]
+    if not enemy_units:
+        game_state["winner"] = VICTORY_GOALS["military_elimination"]["title"]
+        return True
+    player_control = sum(1 for owner in game_state["controlled_hexes"].values() if owner == player)
+    if player_control >= VICTORY_GOALS["military_control"]["target"]:
+        game_state["winner"] = VICTORY_GOALS["military_control"]["title"]
+        return True
+    if game_state["resources"]["gold"] >= VICTORY_GOALS["economic"]["target"]:
+        game_state["winner"] = VICTORY_GOALS["economic"]["title"]
+        return True
+    if game_state["victory_progress"]["technology"] >= VICTORY_GOALS["technology"]["target"] or game_state["universal_science_unlocked"]:
+        game_state["winner"] = VICTORY_GOALS["technology"]["title"]
+        return True
+    player_units = [u for _, _, u in _list_units(faction_name=player)]
+    player_has_chief = any(u["unit_key"] == "chief" for u in player_units)
+    if (not player_units and player_control == 0) or (not player_has_chief and player_control == 0):
+        game_state["winner"] = "Häviö: heimosi hajosi."
+        return True
+    return False
+
+
+def _phase_for_action(action):
+    if action in {"attack"}:
+        return "Taisteluvaihe"
+    if action in {"move", "hex_click"}:
+        return "Liikevaihe"
+    if action in {"draw_card", "play_card"}:
+        return "Korttivaihe"
+    if action in {
+        "recruit_infantry",
+        "recruit_cavalry",
+        "recruit_merchant",
+        "build_camp",
+        "build_market",
+        "build_fortress",
+        "research",
+    }:
+        return "Hallintavaihe"
+    return None
+
+
+def _jump_to_phase_for_action(action):
+    target_phase = _phase_for_action(action)
+    if target_phase and _current_phase() != target_phase:
+        game_state["phase_index"] = TURN_PHASES.index(target_phase)
+        return True
     return False
 
 
 def _advance_phase():
     game_state["phase_index"] = (game_state["phase_index"] + 1) % len(TURN_PHASES)
-    if game_state["phase_index"] == 0:
+    if _current_phase() == "Resurssivaihe":
         game_state["turn"] += 1
     return f"Vaihe vaihdettu: {_current_phase()}."
 
 
-def _apply_action(action):
+def _apply_action(action, payload=None):
+    payload = payload or {}
     phase = _current_phase()
     player_name = game_state["player_faction"]["name"]
-    board = game_state["board"]
-    if action == "end_phase":
+    if action in {"next_phase", "end_phase"}:
+        if action == "next_phase" and phase == "Resurssivaihe" and not _phase_default_action_done(phase):
+            msg = _apply_action("collect_resources", payload)
+            _advance_phase()
+            return f"{msg} Vaihe vaihdettu: {_current_phase()}."
         return _advance_phase()
-    if action not in PHASE_ACTIONS[phase]:
+    if action == "end_turn":
+        game_state["phase_index"] = TURN_PHASES.index("Vuoron lopetus")
+        _run_simple_ai_turn()
+        _clear_turn_temporary_effects()
+        game_state["phase_index"] = TURN_PHASES.index("Resurssivaihe")
+        game_state["turn"] += 1
+        return "Vuoro päättyi. AI teki siirtonsa."
+    if action not in PHASE_ACTIONS.get(phase, []):
         return "Toiminto ei ole sallittu tässä vaiheessa."
-    if action == "draw_strategy":
-        game_state["victory_progress"]["technology"] += 1
-        return "Strategiakortti vedetty (+1 teknologiapiste)."
-    if action == "set_focus_conquest":
-        game_state["focus"] = "Valloitus"
-        return "Vuoron painopiste asetettu: Valloitus."
-    if action == "set_focus_trade":
-        game_state["focus"] = "Kauppa"
-        return "Vuoron painopiste asetettu: Kauppa."
-    if action == "set_focus_diplomacy":
-        game_state["focus"] = "Diplomatia"
-        return "Vuoron painopiste asetettu: Diplomatia."
-    if action == "move":
-        source = _find_unit_coordinates(player_name)
-        if not source:
-            return "Yksikköä ei löytynyt liikkumiseen."
-        sx, sy = source
-        tx, ty = min(sx + 1, board.width - 1), min(sy + 1, board.height - 1)
-        if board.board[ty][tx] is None and _cell_terrain(tx, ty) not in {"water", "lake"}:
-            board.board[ty][tx] = board.board[sy][sx]
-            board.board[sy][sx] = None
-            _recount_faction_units()
-            return "Yksikkö liikkui yhden alueen eteenpäin."
-        return "Kohderuutu on varattu tai kulkukelvoton, liike epäonnistui."
-    if action == "attack":
-        return _resolve_attack(player_name)
-    if action == "build":
-        if game_state["resources"]["artisans"] < 1 or game_state["resources"]["gold"] < 1:
-            return "Rakentaminen epäonnistui: resurssit eivät riitä."
-        game_state["resources"]["artisans"] -= 1
-        game_state["resources"]["gold"] -= 1
-        game_state["victory_progress"]["cultural"] += 2
-        return "Linnoitus ja kulttuurirakennus pystytetty (+2 kulttuuripistettä)."
-    if action == "trade":
-        if game_state["resources"]["cattle"] > 0:
-            game_state["resources"]["cattle"] -= 1
-            game_state["resources"]["gold"] += 2
-        else:
-            game_state["resources"]["gold"] += 1
-        game_state["victory_progress"]["economic"] += 2
-        return "Kauppa toteutettu (+2 talouspistettä)."
-    if action == "diplomacy":
-        relation = game_state["diplomacy"].get_relation(player_name, RIVAL_FACTION)
-        game_state["diplomacy"].set_relation(player_name, RIVAL_FACTION, relation + 10)
-        game_state["victory_progress"]["cultural"] += 1
-        return f"Diplomatia vahvistui. Suhde {RIVAL_FACTION}-faktioon on nyt {relation + 10}."
+
     if action == "collect_resources":
-        game_state["resources"]["horses"] += 1
-        game_state["resources"]["food"] += 1
-        game_state["resources"]["cattle"] += 1
-        bonus_resource = "gold"
-        if game_state["focus"] == "Kauppa":
-            game_state["victory_progress"]["economic"] += 1
-        elif game_state["focus"] == "Diplomatia":
-            bonus_resource = "artisans"
-            game_state["victory_progress"]["cultural"] += 1
-        elif game_state["focus"] == "Valloitus":
-            bonus_resource = "horses"
-            game_state["victory_progress"]["military"] += 1
-        game_state["resources"][bonus_resource] += 1
-        return "Resurssit kerätty hallituilta alueilta."
-    if action == "pay_upkeep":
-        if game_state["resources"]["food"] <= 0:
-            game_state["victory_progress"]["military"] = max(0, game_state["victory_progress"]["military"] - 1)
-            return "Ylläpito epäonnistui: ruoka loppui, armeijan moraali laski."
-        game_state["resources"]["food"] -= 1
-        return "Armeijan ylläpito maksettu."
+        gains = _collect_income(player_name)
+        upkeep_cost = max(1, len(_list_units(faction_name=player_name)) // 5)
+        game_state["resources"]["food"] = max(0, game_state["resources"]["food"] - upkeep_cost)
+        game_state["phase_flags"]["resource_collected"] = True
+        game_state["log"]["event"].insert(0, {"type": "income", "gains": gains, "upkeep": upkeep_cost})
+        game_state["log"]["event"] = game_state["log"]["event"][:20]
+        return f"Resurssit kerätty: +{gains['gold']} kulta, +{gains['food']} ruoka."
+
+    if action == "draw_card":
+        drawn = _draw_cards_for_player(1)
+        if not drawn:
+            return "Korttipakka on tyhjä."
+        return f"Nostit kortin: {drawn[0]}."
+
+    if action == "play_card":
+        card_id = payload.get("card_id")
+        if not card_id:
+            return "Valitse kortti pelattavaksi."
+        return _play_card(card_id)
+
+    if action == "hex_click":
+        try:
+            col = int(payload.get("x"))
+            row = int(payload.get("y"))
+        except (TypeError, ValueError):
+            return "Virheellinen heksivalinta."
+        return _resolve_hex_click(col, row)
+
+    if action == "recruit_infantry":
+        return _recruit_unit("infantry")
+    if action == "recruit_cavalry":
+        return _recruit_unit("cavalry")
+    if action == "recruit_merchant":
+        return _recruit_unit("merchant")
+
+    if action == "build_camp":
+        return _build_structure("camp")
+    if action == "build_market":
+        return _build_structure("market")
+    if action == "build_fortress":
+        return _build_structure("fortress")
+
     if action == "research":
-        game_state["victory_progress"]["technology"] += 2
-        if game_state["resources"]["artisans"] > 0:
-            game_state["resources"]["artisans"] -= 1
-        return "Teknologia kehittyi (+2 teknologiapistettä)."
-    if action == "resolve_event":
-        event_message = EVENT_SEQUENCE[game_state["event_index"] % len(EVENT_SEQUENCE)]
-        game_state["event_index"] += 1
-        if "kultaa" in event_message:
-            game_state["resources"]["gold"] += 2
-            game_state["victory_progress"]["economic"] += 1
-        elif "kulttuuripiste" in event_message:
-            game_state["victory_progress"]["cultural"] += 1
-        elif "teknologiapiste" in event_message:
-            game_state["victory_progress"]["technology"] += 1
-        elif "sotilaspiste" in event_message:
-            game_state["victory_progress"]["military"] += 1
-        return f"Tapahtuma: {event_message}"
+        if game_state["resources"]["artisans"] < 1:
+            return "Tutkimus epäonnistui: käsityöläisiä tarvitaan."
+        game_state["resources"]["artisans"] -= 1
+        game_state["victory_progress"]["technology"] += 1
+        return "Teknologia kehittyi (+1)."
+
+    # Legacy API compatibility
+    if action == "move":
+        selected = game_state.get("selected_unit")
+        if not selected:
+            source = _find_unit_coordinates(player_name)
+            if source:
+                _select_unit(source[0], source[1])
+                selected = game_state.get("selected_unit")
+        if not selected or not game_state["reachable_hexes"]:
+            return "Liike ei onnistunut: valittua yksikköä tai kohteita ei ole."
+        target = game_state["reachable_hexes"][0]
+        return _execute_move(target["x"], target["y"])
+    if action == "attack":
+        selected = game_state.get("selected_unit")
+        if not selected:
+            source = _find_unit_coordinates(player_name)
+            if source:
+                _select_unit(source[0], source[1])
+                selected = game_state.get("selected_unit")
+        if not selected:
+            return "Hyökkäys ei onnistunut: valittua yksikköä ei ole."
+        if not game_state["attackable_hexes"]:
+            # Legacy behavior: auto-target nearest enemy if no adjacent target.
+            return _resolve_attack(player_name)
+        target = game_state["attackable_hexes"][0]
+        return _resolve_targeted_attack(selected["x"], selected["y"], target["x"], target["y"])
+
     return "Tuntematon toiminto."
+
+
+def _reset_mvp_runtime_state():
+    game_state["selected_unit"] = None
+    game_state["selected_hex"] = None
+    game_state["reachable_hexes"] = []
+    game_state["attackable_hexes"] = []
+    game_state["controlled_hexes"] = {}
+    game_state["buildings"] = []
+    game_state["cards"] = _init_card_state()
+    game_state["effects"] = _init_effects()
+    game_state["phase_flags"] = {"resource_collected": False, "card_drawn": False}
+    game_state["log"] = {"battle": [], "event": []}
+    game_state["universal_science_unlocked"] = False
 
 
 @app.route("/")
@@ -1310,6 +2006,7 @@ def start_game():
     game_state["phase_index"] = 0
     game_state["focus"] = "Valloitus"
     game_state["victory_progress"] = {"military": 0, "economic": 0, "cultural": 0, "technology": 0}
+    _sync_victory_progress_keys()
     game_state["winner"] = None
     game_state["event_index"] = 0
     game_state["resources"] = _starting_resources(player_faction["name"])
@@ -1319,9 +2016,12 @@ def start_game():
     game_state["factions_state"] = _init_factions_state(player_faction["name"])
     game_state["next_unit_id"] = 1
     game_state["battle_event_id"] = 0
+    _reset_mvp_runtime_state()
 
     _place_initial_units(player_faction["name"])
     _recount_faction_units()
+    _refresh_controlled_hexes()
+    _draw_cards_for_player(3)
     _set_winner_if_reached()
 
     snapshot = _game_snapshot("Peli aloitettu: maantieteellisesti realistinen heksamaailma luotu.")
@@ -1351,7 +2051,7 @@ def take_action():
     action = payload.get("action", "").strip()
     if not action:
         return jsonify({"error": "Action is required"}), 400
-    message = _apply_action(action)
+    message = _apply_action(action, payload)
     _set_winner_if_reached()
     return jsonify(_game_snapshot(message))
 
@@ -1360,8 +2060,8 @@ def take_action():
 def battle_roll():
     if not game_state["board"]:
         return jsonify({"error": "Game not started"}), 400
-    if _current_phase() != "Toimintavaihe":
-        return jsonify({"error": "Battle roll is only allowed during Toimintavaihe"}), 400
+    if _current_phase() != "Taisteluvaihe":
+        return jsonify({"error": "Battle roll is only allowed during Taisteluvaihe"}), 400
     message = _apply_action("attack")
     _set_winner_if_reached()
     return jsonify(_game_snapshot(message))

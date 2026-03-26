@@ -100,6 +100,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 let boardZoom = 28;
 let selectedHexKey = null;
 let lastState = null;
+let selectedCardId = null;
 
 function axialToPixel(q, r, size) {
     const x = size * Math.sqrt(3) * (q + r / 2);
@@ -409,17 +410,44 @@ function hideTooltip() {
 
 function renderState(data) {
     lastState = data;
-    document.getElementById("turn").textContent = data.turn;
-    document.getElementById("phase").textContent = data.phase;
-    document.getElementById("focus").textContent = data.focus;
-    document.getElementById("player-faction").textContent = data.faction;
-    document.getElementById("messages").textContent = data.message || "";
+    const turnEl = document.getElementById("turn");
+    if (turnEl) {
+        turnEl.textContent = data.turn;
+    }
+    const phaseEl = document.getElementById("phase");
+    if (phaseEl) {
+        phaseEl.textContent = data.phase;
+    }
+    const focusEl = document.getElementById("focus");
+    if (focusEl) {
+        focusEl.textContent = data.focus;
+    }
+    const playerFactionEl = document.getElementById("player-faction");
+    if (playerFactionEl) {
+        playerFactionEl.textContent = data.faction;
+    }
+    const owner = document.getElementById("turn-owner");
+    if (owner) {
+        owner.textContent = data.current_turn_owner || data.faction || "-";
+    }
+    const phaseHelp = document.getElementById("phase-help");
+    if (phaseHelp) {
+        phaseHelp.textContent = data.phase_help || "";
+    }
+    const messagesEl = document.getElementById("messages");
+    if (messagesEl) {
+        messagesEl.textContent = data.message || "";
+    }
 
     renderHexBoard(data);
     renderResources(data.resources || {});
     renderVictoryProgress(data.victory_progress || {}, data.victory_goals || {}, data.winner);
     renderFactionTokens(data.factions_state || []);
     renderBattleView(data.battle || {});
+    renderSelectedUnitInfo(data.selected_unit);
+    renderSelectedHexInfo(data.selected_hex);
+    renderCardHand(data.cards || {});
+    renderLogs(data.logs || {});
     renderControls(data.available_actions || [], data.action_labels || {}, data.winner);
 }
 
@@ -605,7 +633,7 @@ function renderHexBoard(data) {
 
         tileGroup.addEventListener("click", () => {
             selectedHexKey = key;
-            renderHexBoard(data);
+            performAction("hex_click", { x: hex.col, y: hex.row });
         });
         svg.appendChild(tileGroup);
     });
@@ -646,6 +674,9 @@ function renderHexBoard(data) {
 
 function renderResources(resources) {
     const resourcesList = document.getElementById("resources");
+    if (!resourcesList) {
+        return;
+    }
     resourcesList.innerHTML = "";
     Object.keys(resourceLabels).forEach((key) => {
         const li = document.createElement("li");
@@ -657,6 +688,9 @@ function renderResources(resources) {
 function renderVictoryProgress(progress, goals, winner) {
     const victoryList = document.getElementById("victory-progress");
     const winnerBanner = document.getElementById("winner-banner");
+    if (!victoryList || !winnerBanner) {
+        return;
+    }
     victoryList.innerHTML = "";
     Object.keys(victoryLabels).forEach((key) => {
         const li = document.createElement("li");
@@ -676,6 +710,9 @@ function renderVictoryProgress(progress, goals, winner) {
 
 function renderFactionTokens(factionsState) {
     const container = document.getElementById("faction-pieces");
+    if (!container) {
+        return;
+    }
     container.innerHTML = "";
     if (!Array.isArray(factionsState) || !factionsState.length) {
         container.innerHTML = "<p>Heimot latautuvat...</p>";
@@ -739,6 +776,9 @@ function renderBattleView(battle) {
 
 function renderControls(actions, actionLabels, winner) {
     const controls = document.getElementById("controls");
+    if (!controls) {
+        return;
+    }
     controls.innerHTML = "";
     actions.forEach((action) => {
         const button = document.createElement("button");
@@ -749,11 +789,114 @@ function renderControls(actions, actionLabels, winner) {
     });
 }
 
-function performAction(action) {
+function renderSelectedUnitInfo(unit) {
+    const container = document.getElementById("selected-unit-info");
+    if (!container) {
+        return;
+    }
+    if (!unit) {
+        container.innerHTML = "Valitse oma yksikkö kartalta.";
+        return;
+    }
+    container.innerHTML = `
+        <strong>${unit.token || "•"} ${unit.type}</strong><br>
+        Omistaja: ${unit.owner}<br>
+        HP: ${unit.hp}/${unit.max_hp} | Liike: ${unit.move}<br>
+        Hyökkäys: ${unit.strength} | Puolustus: ${unit.defense}<br>
+        Rooli: ${unit.role}<br>
+        Sijainti: (${unit.location.x}, ${unit.location.y})
+    `;
+}
+
+function renderSelectedHexInfo(hexInfo) {
+    const container = document.getElementById("selected-hex-info");
+    if (!container) {
+        return;
+    }
+    if (!hexInfo) {
+        container.innerHTML = "Valitse heksi nähdäksesi tiedot.";
+        return;
+    }
+    const owner = hexInfo.owner || "Ei omistajaa";
+    const building = hexInfo.building ? `${hexInfo.building.type} (${hexInfo.building.faction})` : "Ei rakennusta";
+    container.innerHTML = `
+        Koordinaatit: (${hexInfo.x}, ${hexInfo.y})<br>
+        Maasto: ${hexInfo.terrain}<br>
+        Korkeus: ${Number(hexInfo.elevation || 0).toFixed(2)}<br>
+        Omistus: ${owner}<br>
+        Rakennus: ${building}
+    `;
+}
+
+function renderCardHand(cardsState) {
+    const hand = document.getElementById("card-hand");
+    if (!hand) {
+        return;
+    }
+    hand.innerHTML = "";
+    const cards = Array.isArray(cardsState.hand) ? cardsState.hand : [];
+    if (!cards.length) {
+        hand.innerHTML = "<p>Ei kortteja kädessä.</p>";
+        selectedCardId = null;
+        return;
+    }
+    cards.forEach((card) => {
+        const cardButton = document.createElement("button");
+        cardButton.type = "button";
+        cardButton.className = `hand-card ${selectedCardId === card.id ? "selected-card" : ""}`;
+        cardButton.innerHTML = `<strong>${card.name}</strong><small>${card.kind}</small><span>${card.desc}</span>`;
+        cardButton.addEventListener("click", () => {
+            selectedCardId = card.id;
+            renderCardHand(cardsState);
+        });
+        hand.appendChild(cardButton);
+    });
+}
+
+function renderLogs(logs) {
+    const battleLog = document.getElementById("battle-log");
+    const eventLog = document.getElementById("event-log");
+    if (battleLog) {
+        battleLog.innerHTML = "";
+        const battleItems = Array.isArray(logs.battle) ? logs.battle : [];
+        if (!battleItems.length) {
+            battleLog.innerHTML = "<li>Ei taisteluja vielä.</li>";
+        } else {
+            battleItems.slice(0, 8).forEach((entry) => {
+                const li = document.createElement("li");
+                li.textContent = `${entry.attacker_unit} -> ${entry.defender_unit}: ${entry.outcome} (ATK ${entry.attack_total} / DEF ${entry.defense_total})`;
+                battleLog.appendChild(li);
+            });
+        }
+    }
+    if (eventLog) {
+        eventLog.innerHTML = "";
+        const events = Array.isArray(logs.event) ? logs.event : [];
+        if (!events.length) {
+            eventLog.innerHTML = "<li>Ei tapahtumia vielä.</li>";
+        } else {
+            events.slice(0, 10).forEach((entry) => {
+                const li = document.createElement("li");
+                if (entry.type === "card") {
+                    li.textContent = `Kortti: ${entry.name}`;
+                } else if (entry.type === "build") {
+                    li.textContent = `Rakennettu ${entry.name} (${entry.x},${entry.y})`;
+                } else if (entry.type === "income") {
+                    li.textContent = `Tulot +${entry.gains.gold} kulta, +${entry.gains.food} ruoka`;
+                } else {
+                    li.textContent = JSON.stringify(entry);
+                }
+                eventLog.appendChild(li);
+            });
+        }
+    }
+}
+
+function performAction(action, extraPayload = {}) {
     fetch("/take_action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extraPayload }),
     })
         .then((response) => response.json())
         .then((data) => {
@@ -794,6 +937,210 @@ function setupBoardZoom() {
     });
 }
 
+function setupMvpButtons() {
+    const nextPhase = document.getElementById("next-phase-button");
+    if (nextPhase) {
+        nextPhase.addEventListener("click", () => performAction("next_phase"));
+    }
+    const endTurn = document.getElementById("end-turn-button");
+    if (endTurn) {
+        endTurn.addEventListener("click", () => performAction("end_turn"));
+    }
+    const newGame = document.getElementById("new-game-button");
+    if (newGame) {
+        newGame.addEventListener("click", () => {
+            window.location.reload();
+        });
+    }
+    const drawCard = document.getElementById("draw-card-button");
+    if (drawCard) {
+        drawCard.addEventListener("click", () => performAction("draw_card"));
+    }
+    const playCard = document.getElementById("play-card-button");
+    if (playCard) {
+        playCard.addEventListener("click", () => {
+            if (!selectedCardId) {
+                const msg = document.getElementById("messages");
+                if (msg) {
+                    msg.textContent = "Valitse ensin kortti kädestä.";
+                }
+                return;
+            }
+            performAction("play_card", { card_id: selectedCardId });
+        });
+    }
+    document.querySelectorAll(".build-controls [data-action]").forEach((btn) => {
+        btn.addEventListener("click", () => performAction(btn.dataset.action));
+    });
+}
+
+function renderSetupPreviewHexMap(profile) {
+    const svg = document.getElementById("setup-preview-map");
+    if (!svg) {
+        return;
+    }
+    svg.innerHTML = "";
+    svg.setAttribute("viewBox", "0 0 340 190");
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+    const defs = document.createElementNS(SVG_NS, "defs");
+    const hexGrad = document.createElementNS(SVG_NS, "linearGradient");
+    hexGrad.setAttribute("id", "setup-preview-hex-gradient");
+    hexGrad.setAttribute("x1", "0%");
+    hexGrad.setAttribute("y1", "100%");
+    hexGrad.setAttribute("x2", "0%");
+    hexGrad.setAttribute("y2", "0%");
+    const low = document.createElementNS(SVG_NS, "stop");
+    low.setAttribute("offset", "0%");
+    low.setAttribute("stop-color", "#5f7f53");
+    const high = document.createElementNS(SVG_NS, "stop");
+    high.setAttribute("offset", "100%");
+    high.setAttribute("stop-color", "#a9c27e");
+    hexGrad.appendChild(low);
+    hexGrad.appendChild(high);
+    defs.appendChild(hexGrad);
+    svg.appendChild(defs);
+
+    const bg = document.createElementNS(SVG_NS, "rect");
+    bg.setAttribute("x", "0");
+    bg.setAttribute("y", "0");
+    bg.setAttribute("width", "340");
+    bg.setAttribute("height", "190");
+    bg.setAttribute("fill", "rgba(234, 223, 201, 0.95)");
+    svg.appendChild(bg);
+
+    const size = 16;
+    const rows = 5;
+    const cols = 7;
+    const centerCol = 3;
+    const centerRow = 2;
+    const baseX = 54;
+    const baseY = 42;
+
+    const affinity = (profile && Array.isArray(profile.affinities) && profile.affinities[0]) || "plains";
+    const affinityFill = affinity === "forest"
+        ? "#6f9462"
+        : affinity === "mountain"
+        ? "url(#setup-preview-hex-gradient)"
+        : affinity === "coast" || affinity === "river"
+        ? "#7eb4dd"
+        : "#a7c77a";
+
+    for (let r = 0; r < rows; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+            const q = c - Math.floor(r / 2);
+            const p = axialToPixel(q, r, size);
+            const cx = baseX + p.x;
+            const cy = baseY + p.y;
+            const poly = document.createElementNS(SVG_NS, "polygon");
+            poly.setAttribute("points", hexPoints(cx, cy, size));
+            poly.setAttribute("stroke", "rgba(52, 47, 35, 0.46)");
+            poly.setAttribute("stroke-width", "1.2");
+            poly.setAttribute("fill", Math.abs(c - centerCol) + Math.abs(r - centerRow) <= 1 ? affinityFill : "#89b17a");
+            if (Math.abs(c - centerCol) + Math.abs(r - centerRow) === 0) {
+                poly.setAttribute("stroke", "rgba(66, 123, 198, 0.94)");
+                poly.setAttribute("stroke-width", "2.5");
+            }
+            svg.appendChild(poly);
+        }
+    }
+
+    const river = document.createElementNS(SVG_NS, "path");
+    river.setAttribute("d", "M44 28 C 122 62, 188 68, 284 126");
+    river.setAttribute("stroke", "rgba(55, 154, 220, 0.78)");
+    river.setAttribute("stroke-width", "3");
+    river.setAttribute("fill", "none");
+    river.setAttribute("stroke-linecap", "round");
+    svg.appendChild(river);
+}
+
+function applyFactionCardProfile(card) {
+    const factionName = card.dataset.factionName;
+    const profile = factionLobbyProfiles[factionName] || {
+        emblem: factionSigil[factionName] || "🏳️",
+        specialization: "Heimon erikoistuminen",
+        roleLabel: "Heimo",
+        roleClass: "role-plains",
+        affinities: ["plains"],
+        likelyTerrain: "Tasanko",
+        elevationLabel: "Matalat alueet",
+    };
+    card.querySelector(".faction-card-emblem").textContent = profile.emblem || "🏳️";
+    card.querySelector(".faction-card-role").textContent = profile.specialization || "Heimo";
+    const affinityTexts = (profile.affinities || ["plains"])
+        .map((key) => terrainAffinityMeta[key] || { icon: "🌍", label: key })
+        .map((meta) => `${meta.icon} ${meta.label}`)
+        .join(" · ");
+    card.querySelector(".faction-card-affinity").textContent = affinityTexts;
+    card.querySelector(".faction-card-spec").textContent = profile.roleLabel || card.dataset.bonus || "";
+    const firstAffinity = (profile.affinities && profile.affinities[0]) || "plains";
+    card.classList.add(`affinity-${firstAffinity}`);
+}
+
+function updateSetupPreview(card) {
+    const profile = factionLobbyProfiles[card.dataset.factionName] || null;
+    const nameEl = document.getElementById("setup-preview-name");
+    const specEl = document.getElementById("setup-preview-specialization");
+    const terrainEl = document.getElementById("setup-preview-terrain");
+    const elevEl = document.getElementById("setup-preview-elevation");
+    const affinityEl = document.getElementById("setup-preview-affinity");
+    if (nameEl) {
+        nameEl.textContent = card.dataset.factionName;
+    }
+    if (specEl) {
+        specEl.textContent = profile?.specialization || card.dataset.bonus || "";
+    }
+    if (terrainEl) {
+        terrainEl.textContent = `Biome: ${profile?.likelyTerrain || "Vaihteleva"}`;
+    }
+    if (elevEl) {
+        elevEl.textContent = `Korkeus: ${profile?.elevationLabel || "Sekalainen"}`;
+    }
+    if (affinityEl) {
+        const affinityText = (profile?.affinities || ["plains"])
+            .map((key) => terrainAffinityMeta[key] || { icon: "🌍", label: key })
+            .map((meta) => `${meta.icon} ${meta.label}`)
+            .join(" · ");
+        affinityEl.textContent = `Affiniteetti: ${affinityText}`;
+    }
+    renderSetupPreviewHexMap(profile);
+}
+
+function setupFactionLobby() {
+    const form = document.getElementById("faction-form");
+    const hidden = document.getElementById("selected-faction-input");
+    const cards = Array.from(document.querySelectorAll(".faction-card"));
+    if (!form || !hidden || !cards.length) {
+        return;
+    }
+    let selectedCard = null;
+    cards.forEach((card) => {
+        applyFactionCardProfile(card);
+        card.addEventListener("mouseenter", () => {
+            card.classList.add("is-hovered");
+            updateSetupPreview(card);
+        });
+        card.addEventListener("mouseleave", () => {
+            card.classList.remove("is-hovered");
+            if (!selectedCard) {
+                renderSetupPreviewHexMap(null);
+                return;
+            }
+            updateSetupPreview(selectedCard);
+        });
+        card.addEventListener("click", () => {
+            cards.forEach((node) => node.classList.remove("is-selected"));
+            card.classList.add("is-selected");
+            selectedCard = card;
+            hidden.value = card.dataset.index;
+            updateSetupPreview(card);
+        });
+    });
+    if (cards[0]) {
+        cards[0].click();
+    }
+}
+
 document.getElementById("faction-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -809,6 +1156,8 @@ document.getElementById("faction-form").addEventListener("submit", (event) => {
         });
 });
 
+setupFactionLobby();
 document.addEventListener("mousemove", moveTooltip);
 loadState();
 setupBoardZoom();
+setupMvpButtons();

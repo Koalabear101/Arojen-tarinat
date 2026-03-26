@@ -14,44 +14,54 @@ class TestBoardGameTurnFlow(unittest.TestCase):
         payload = self.start_payload
         self.assertEqual(payload["status"], "started")
         self.assertEqual(payload["turn"], 1)
-        self.assertEqual(payload["phase"], "Suunnitteluvaihe")
+        self.assertEqual(payload["phase"], "Resurssivaihe")
         self.assertIn("horses", payload["resources"])
         self.assertIn("economic", payload["victory_progress"])
-        self.assertIn("end_phase", payload["available_actions"])
+        self.assertIn("next_phase", payload["available_actions"])
+        self.assertIn("end_turn", payload["available_actions"])
 
     def test_action_restricted_by_phase(self):
         response = self.client.post("/take_action", json={"action": "attack"})
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertIn("ei ole sallittu", payload["message"])
-        self.assertEqual(payload["phase"], "Suunnitteluvaihe")
+        self.assertEqual(payload["phase"], "Resurssivaihe")
 
-    def test_end_phase_cycles_turn_after_four_phases(self):
-        for _ in range(4):
-            response = self.client.post("/take_action", json={"action": "end_phase"})
+    def test_next_phase_cycles_after_six_phases(self):
+        for _ in range(6):
+            response = self.client.post("/take_action", json={"action": "next_phase"})
             self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["phase"], "Suunnitteluvaihe")
+        self.assertEqual(payload["phase"], "Resurssivaihe")
         self.assertEqual(payload["turn"], 2)
 
     def test_research_path_can_trigger_technology_victory(self):
         winner = None
-        for _ in range(4):
-            self.client.post("/take_action", json={"action": "draw_strategy"})
-            self.client.post("/take_action", json={"action": "end_phase"})
-            self.client.post("/take_action", json={"action": "end_phase"})
+        for _ in range(8):
+            self.client.post("/take_action", json={"action": "collect_resources"})
+            self.client.post("/take_action", json={"action": "next_phase"})  # kortti
+            self.client.post("/take_action", json={"action": "draw_card"})
+            self.client.post("/take_action", json={"action": "next_phase"})  # liike
+            self.client.post("/take_action", json={"action": "next_phase"})  # taistelu
+            self.client.post("/take_action", json={"action": "next_phase"})  # hallinta
             research_response = self.client.post("/take_action", json={"action": "research"})
             payload = research_response.get_json()
             winner = payload["winner"]
-            self.client.post("/take_action", json={"action": "end_phase"})
-            self.client.post("/take_action", json={"action": "end_phase"})
+            self.client.post("/take_action", json={"action": "end_turn"})
             if winner:
                 break
 
-        self.assertEqual(winner, "Teknologinen voitto")
+        self.assertEqual(winner, "Teknologiavoitto")
 
     def test_attack_uses_attack_and_defense_dice_in_battle_view(self):
-        self.client.post("/take_action", json={"action": "end_phase"})
+        self.client.post("/take_action", json={"action": "collect_resources"})
+        self.client.post("/take_action", json={"action": "next_phase"})  # kortti
+        self.client.post("/take_action", json={"action": "draw_card"})
+        self.client.post("/take_action", json={"action": "next_phase"})  # liike
+        player = next(f for f in self.start_payload["factions_state"] if f["is_player"])
+        unit = player["units"][0]
+        self.client.post("/take_action", json={"action": "hex_click", "x": unit["x"], "y": unit["y"]})
+        self.client.post("/take_action", json={"action": "next_phase"})  # taistelu
         response = self.client.post("/take_action", json={"action": "attack"})
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
@@ -76,6 +86,25 @@ class TestBoardGameTurnFlow(unittest.TestCase):
         self.assertIn("cavalry", payload["unit_types"])
         self.assertIn("factions_state", payload)
         self.assertTrue(any(item["name"] == "Mongoli-heimo" for item in payload["factions_state"]))
+
+    def test_hex_click_selects_unit_and_reveals_moves(self):
+        self.client.post("/take_action", json={"action": "collect_resources"})
+        self.client.post("/take_action", json={"action": "next_phase"})
+        self.client.post("/take_action", json={"action": "draw_card"})
+        self.client.post("/take_action", json={"action": "next_phase"})
+        player = next(f for f in self.start_payload["factions_state"] if f["is_player"])
+        unit = player["units"][0]
+        response = self.client.post("/take_action", json={"action": "hex_click", "x": unit["x"], "y": unit["y"]})
+        payload = response.get_json()
+        self.assertIn("selected_unit", payload)
+        self.assertIsNotNone(payload["selected_unit"])
+        self.assertGreater(len(payload["reachable_hexes"]), 0)
+
+    def test_end_turn_advances_turn_and_runs_ai(self):
+        response = self.client.post("/take_action", json={"action": "end_turn"})
+        payload = response.get_json()
+        self.assertEqual(payload["turn"], 2)
+        self.assertEqual(payload["phase"], "Resurssivaihe")
 
 
 if __name__ == "__main__":
