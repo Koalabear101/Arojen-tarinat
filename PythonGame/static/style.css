@@ -206,6 +206,11 @@ h3 {
     fill: var(--biome-water);
 }
 
+.hex-tile.shoreline .hex-shape {
+    stroke: rgba(28, 47, 72, 0.85);
+    stroke-width: 2;
+}
+
 .hex-tile.selected .hex-shape {
     stroke: var(--hex-select);
     stroke-width: 2.4;
@@ -220,6 +225,11 @@ h3 {
 .hex-tile.highlight-defender .hex-shape {
     stroke: #d9534f;
     stroke-width: 2.8;
+}
+
+.hex-tile.river-segment .hex-shape {
+    stroke: rgba(122, 179, 224, 0.95);
+    stroke-width: 2.1;
 }
 
 .terrain-icon {

@@ -47,6 +47,7 @@ class TestBattleApi(unittest.TestCase):
         if first_faction["units"]:
             self.assertIn("x", first_faction["units"][0])
             self.assertIn("y", first_faction["units"][0])
+        self.assertIn("spawn_role", first_faction)
 
 
 if __name__ == "__main__":

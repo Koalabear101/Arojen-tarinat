@@ -30,6 +30,11 @@ class TestUIStateApiShape(unittest.TestCase):
         self.assertIn("terrain_types", payload)
         self.assertIn("forest", payload["terrain_types"])
         self.assertIn("battle_positions", payload)
+        self.assertIn("rivers", payload)
+        self.assertTrue(len(payload["rivers"]) > 0)
+        self.assertIn("shoreline", payload["hexes"][0][0])
+        self.assertIn("elevation_band", payload["hexes"][0][0])
+        self.assertIn("terrain_role", payload["hexes"][0][0])
 
     def test_faction_spawn_positions_exposed(self):
         response = self.client.get("/get_state")
@@ -49,6 +54,15 @@ class TestUIStateApiShape(unittest.TestCase):
         self.assertIn("last", payload["battle"])
         self.assertIn("factions_state", payload)
         self.assertIn("battle", payload)
+
+    def test_geography_has_continuous_structures(self):
+        payload = self.client.get("/get_state").get_json()
+        flat_hexes = [hex_cell for row in payload["hexes"] for hex_cell in row]
+        terrains = [hex_cell["terrain"] for hex_cell in flat_hexes]
+        self.assertGreaterEqual(terrains.count("mountain"), 8)
+        self.assertGreaterEqual(terrains.count("forest"), 20)
+        self.assertGreaterEqual(terrains.count("water"), 30)
+        self.assertGreaterEqual(len(payload["rivers"]), 1)
 
 
 if __name__ == "__main__":

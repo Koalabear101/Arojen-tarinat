@@ -35,6 +35,7 @@ const terrainIcons = {
     desert: "◌",
     water: "≈",
     lake: "≈",
+    river: "≋",
 };
 
 const factionSigil = {
@@ -183,6 +184,9 @@ function renderHexBoard(data) {
             tileGroup.classList.add("highlight-attacker");
         } else if (hex.highlight === "defender") {
             tileGroup.classList.add("highlight-defender");
+        }
+        if (hex.shoreline) {
+            tileGroup.classList.add("shoreline");
         }
 
         const polygon = document.createElementNS(SVG_NS, "polygon");

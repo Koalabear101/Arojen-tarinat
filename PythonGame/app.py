@@ -66,20 +66,13 @@ UNIT_TYPES = {
 
 BOARD_WIDTH = 20
 BOARD_HEIGHT = 20
-TERRAIN_TYPES = ["forest", "mountain", "plains", "desert", "lake", "water"]
+TERRAIN_TYPES = ["water", "shore", "plains", "forest", "mountain", "desert", "river", "lake"]
 
 FACTION_LOADOUTS = {
-    "Mongoli-heimo": ["cavalry", "cavalry", "infantry", "chief", "merchant"],
-    "Kiinan dynastia": ["infantry", "infantry", "cavalry", "chief", "merchant"],
-    "Persialainen valtakunta": ["merchant", "cavalry", "infantry", "chief", "merchant"],
-    "Venäläiset ruhtinaskunnat": ["infantry", "infantry", "cavalry", "chief", "merchant"],
-}
-
-FACTION_SPAWN_POINTS = {
-    "Mongoli-heimo": [(2, 2), (3, 2), (2, 3), (3, 3), (4, 2)],
-    "Kiinan dynastia": [(17, 2), (16, 2), (17, 3), (16, 3), (15, 2)],
-    "Persialainen valtakunta": [(2, 17), (3, 17), (2, 16), (3, 16), (4, 17)],
-    "Venäläiset ruhtinaskunnat": [(17, 17), (16, 17), (17, 16), (16, 16), (15, 17)],
+    "Mongoli-heimo": ["cavalry", "cavalry", "infantry", "chief", "merchant"],              # paimentolaisheimo
+    "Kiinan dynastia": ["infantry", "infantry", "cavalry", "chief", "merchant"],            # vuoristoheimo
+    "Persialainen valtakunta": ["merchant", "cavalry", "infantry", "chief", "merchant"],    # kauppiasheimo
+    "Venäläiset ruhtinaskunnat": ["infantry", "infantry", "cavalry", "chief", "merchant"],  # metsäheimo
 }
 
 FACTION_SYMBOLS = {
@@ -87,6 +80,20 @@ FACTION_SYMBOLS = {
     "Kiinan dynastia": "🐉",
     "Persialainen valtakunta": "🦁",
     "Venäläiset ruhtinaskunnat": "🦅",
+}
+
+FACTION_ROLE_LABELS = {
+    "Mongoli-heimo": "Paimentolaisheimo",
+    "Kiinan dynastia": "Vuoristoheimo",
+    "Persialainen valtakunta": "Kauppiasheimo",
+    "Venäläiset ruhtinaskunnat": "Metsäheimo",
+}
+
+FACTION_ENVIRONMENT_RULES = {
+    "Mongoli-heimo": {"required": {"plains"}, "preferred_adjacent": {"plains", "forest", "river"}},
+    "Kiinan dynastia": {"required": {"plains", "forest", "mountain"}, "preferred_adjacent": {"mountain", "river"}},
+    "Persialainen valtakunta": {"required": {"shore", "river"}, "preferred_adjacent": {"shore", "river", "plains"}},
+    "Venäläiset ruhtinaskunnat": {"required": {"forest"}, "preferred_adjacent": {"forest", "plains", "river"}},
 }
 
 RIVAL_FACTION = "Kiinan dynastia"
@@ -104,7 +111,8 @@ game_state = {
     "event_index": 0,
     "battle": {"last": None, "history": []},
     "factions_state": {},
-    "map": {"width": BOARD_WIDTH, "height": BOARD_HEIGHT, "hexes": []},
+    "map": {"width": BOARD_WIDTH, "height": BOARD_HEIGHT, "hexes": [], "rivers": [], "continents": []},
+    "spawn_points": {},
     "next_unit_id": 1,
     "battle_event_id": 0,
 }
@@ -144,33 +152,310 @@ def _next_unit_id():
     return value
 
 
-def _terrain_for(col, row, width, height):
+def _axial_neighbors(col, row):
+    even = row % 2 == 0
+    if even:
+        candidates = [(-1, -1), (0, -1), (-1, 0), (1, 0), (-1, 1), (0, 1)]
+    else:
+        candidates = [(0, -1), (1, -1), (-1, 0), (1, 0), (0, 1), (1, 1)]
+    return [(col + dx, row + dy) for dx, dy in candidates]
+
+
+def _within(col, row, width, height):
+    return 0 <= col < width and 0 <= row < height
+
+
+def _distance_to_water(height_map, col, row):
+    width = len(height_map[0])
+    height = len(height_map)
+    best = width + height
+    for rr in range(height):
+        for cc in range(width):
+            if height_map[rr][cc] <= 0.0:
+                dist = abs(cc - col) + abs(rr - row)
+                if dist < best:
+                    best = dist
+    return best
+
+
+def _base_height(col, row, width, height):
     nx = (col / max(1, width - 1)) * 2 - 1
     ny = (row / max(1, height - 1)) * 2 - 1
-    ridge = math.sin(col * 0.45) + math.cos(row * 0.31) + math.sin((col + row) * 0.22) * 0.7
-    dryness = math.cos(col * 0.19 - row * 0.17)
-    distance = abs(nx) + abs(ny)
-    if ridge < -1.05:
-        return "water"
-    if ridge < -0.82 or (distance > 1.42 and ridge < -0.12):
-        return "lake"
-    if ridge > 1.2:
-        return "mountain"
-    if ridge > 0.62:
-        return "forest"
-    if dryness > 0.72 and distance < 1.25:
-        return "desert"
-    return "plains"
+    return (
+        math.sin(col * 0.35) * 0.22
+        + math.cos(row * 0.27) * 0.18
+        + math.sin((col + row) * 0.17) * 0.16
+        - (abs(nx) * 0.1 + abs(ny) * 0.1)
+    )
+
+
+def _paint_ellipse(field, cx, cy, rx, ry, delta):
+    height = len(field)
+    width = len(field[0])
+    for row in range(height):
+        for col in range(width):
+            dx = (col - cx) / max(0.01, rx)
+            dy = (row - cy) / max(0.01, ry)
+            d2 = dx * dx + dy * dy
+            if d2 <= 1.0:
+                field[row][col] += delta * (1.0 - d2)
+
+
+def _generate_continents(width, height):
+    height_map = [[_base_height(col, row, width, height) for col in range(width)] for row in range(height)]
+
+    # Kaksi päämannerta + niemimaa
+    _paint_ellipse(height_map, width * 0.33, height * 0.48, width * 0.27, height * 0.36, 1.25)
+    _paint_ellipse(height_map, width * 0.70, height * 0.44, width * 0.22, height * 0.30, 1.10)
+    _paint_ellipse(height_map, width * 0.56, height * 0.67, width * 0.17, height * 0.16, 0.95)
+
+    # Niemimaa itään
+    for row in range(height):
+        for col in range(width):
+            peninsula = math.exp(-(((col - width * 0.88) ** 2) / (width * 1.8) + ((row - height * 0.53) ** 2) / (height * 1.3)))
+            height_map[row][col] += peninsula * 0.95
+
+    # Merialue syvennys keskelle
+    _paint_ellipse(height_map, width * 0.52, height * 0.50, width * 0.12, height * 0.20, -0.9)
+    return height_map
+
+
+def _add_mountain_chain(height_map, points, strength=0.52):
+    height = len(height_map)
+    width = len(height_map[0])
+    for row in range(height):
+        for col in range(width):
+            best = 999.0
+            for idx in range(len(points) - 1):
+                x1, y1 = points[idx]
+                x2, y2 = points[idx + 1]
+                dx = x2 - x1
+                dy = y2 - y1
+                seg_len2 = dx * dx + dy * dy
+                if seg_len2 == 0:
+                    t = 0.0
+                else:
+                    t = max(0.0, min(1.0, ((col - x1) * dx + (row - y1) * dy) / seg_len2))
+                proj_x = x1 + t * dx
+                proj_y = y1 + t * dy
+                dist = math.sqrt((col - proj_x) ** 2 + (row - proj_y) ** 2)
+                if dist < best:
+                    best = dist
+            ridge = max(0.0, 1.0 - (best / 2.1))
+            if ridge > 0:
+                height_map[row][col] += ridge * strength
+
+
+def _add_mountain_ranges(height_map, width, height):
+    chain_main = [
+        (width * 0.20, height * 0.30),
+        (width * 0.31, height * 0.38),
+        (width * 0.44, height * 0.46),
+        (width * 0.58, height * 0.58),
+    ]
+    chain_east = [
+        (width * 0.66, height * 0.28),
+        (width * 0.74, height * 0.35),
+        (width * 0.82, height * 0.45),
+    ]
+    _add_mountain_chain(height_map, chain_main, strength=0.57)
+    _add_mountain_chain(height_map, chain_east, strength=0.49)
+
+
+def _trace_river(height_map, start_col, start_row, terrain):
+    width = len(height_map[0])
+    height = len(height_map)
+    current = (start_col, start_row)
+    path = []
+    visited = set()
+    for _ in range(width * height):
+        col, row = current
+        if not _within(col, row, width, height):
+            break
+        if (col, row) in visited:
+            break
+        visited.add((col, row))
+        path.append((col, row))
+        if terrain[row][col] in {"water", "shore"}:
+            break
+        neigh = [p for p in _axial_neighbors(col, row) if _within(p[0], p[1], width, height)]
+        if not neigh:
+            break
+        neigh.sort(key=lambda p: height_map[p[1]][p[0]])
+        next_cell = neigh[0]
+        if height_map[next_cell[1]][next_cell[0]] >= height_map[row][col]:
+            # fallback: kohti lähintä merta
+            best = min(
+                neigh,
+                key=lambda p: _distance_to_water(height_map, p[0], p[1]) + height_map[p[1]][p[0]] * 0.2,
+            )
+            next_cell = best
+        current = next_cell
+    return path
+
+
+def _carve_rivers(height_map, terrain):
+    width = len(height_map[0])
+    height = len(height_map)
+    peaks = []
+    for row in range(1, height - 1):
+        for col in range(1, width - 1):
+            if terrain[row][col] in {"mountain", "forest"} and height_map[row][col] > 1.35:
+                peaks.append((col, row, height_map[row][col]))
+    peaks.sort(key=lambda item: item[2], reverse=True)
+    used = set()
+    river_paths = []
+    for col, row, _ in peaks[:6]:
+        path = _trace_river(height_map, col, row, terrain)
+        if len(path) < 4:
+            continue
+        # joen täytyy päätyä mereen/rantaan
+        end_col, end_row = path[-1]
+        if terrain[end_row][end_col] not in {"water", "shore"}:
+            continue
+        fresh = [p for p in path if p not in used]
+        if len(fresh) < 4:
+            continue
+        for c, r in path[:-1]:
+            if terrain[r][c] in {"plains", "forest", "desert"}:
+                terrain[r][c] = "river"
+                used.add((c, r))
+        river_paths.append(path)
+    return river_paths
+
+
+def _coastline_pass(terrain):
+    width = len(terrain[0])
+    height = len(terrain)
+    for row in range(height):
+        for col in range(width):
+            if terrain[row][col] != "water":
+                continue
+            for nc, nr in _axial_neighbors(col, row):
+                if _within(nc, nr, width, height) and terrain[nr][nc] not in {"water", "shore"}:
+                    terrain[row][col] = "shore"
+                    break
+
+
+def _lake_pass(height_map, terrain):
+    width = len(terrain[0])
+    height = len(terrain)
+    for row in range(1, height - 1):
+        for col in range(1, width - 1):
+            if terrain[row][col] in {"water", "shore", "river"}:
+                continue
+            neigh = [terrain[nr][nc] for nc, nr in _axial_neighbors(col, row) if _within(nc, nr, width, height)]
+            water_neighbors = sum(1 for t in neigh if t in {"water", "shore", "river"})
+            if water_neighbors >= 3 and height_map[row][col] > 0.55:
+                terrain[row][col] = "lake"
+
+
+def _assign_biomes(height_map):
+    width = len(height_map[0])
+    height = len(height_map)
+    terrain = [["water" for _ in range(width)] for _ in range(height)]
+
+    for row in range(height):
+        for col in range(width):
+            h = height_map[row][col]
+            lat = abs((row / max(1, height - 1)) * 2 - 1)  # 0 equator, 1 poles
+            inland = _distance_to_water(height_map, col, row)
+            moisture = (
+                math.sin(col * 0.29 + row * 0.11) * 0.35
+                + math.cos(row * 0.23) * 0.25
+                + (0.45 - lat * 0.4)
+                - inland * 0.032
+            )
+
+            if h <= 0.02:
+                terrain[row][col] = "water"
+            elif h >= 1.40:
+                terrain[row][col] = "mountain"
+            elif moisture < -0.08 and inland > 4 and lat < 0.55:
+                terrain[row][col] = "desert"
+            elif moisture > 0.15:
+                terrain[row][col] = "forest"
+            else:
+                terrain[row][col] = "plains"
+
+    _coastline_pass(terrain)
+    _lake_pass(height_map, terrain)
+    river_paths = _carve_rivers(height_map, terrain)
+    return terrain, river_paths
+
+
+def _continent_clusters(terrain):
+    width = len(terrain[0])
+    height = len(terrain)
+    land = {"plains", "forest", "mountain", "desert", "river", "lake"}
+    visited = set()
+    continents = []
+    for row in range(height):
+        for col in range(width):
+            if (col, row) in visited or terrain[row][col] not in land:
+                continue
+            stack = [(col, row)]
+            cells = []
+            visited.add((col, row))
+            while stack:
+                cc, rr = stack.pop()
+                cells.append((cc, rr))
+                for nc, nr in _axial_neighbors(cc, rr):
+                    if not _within(nc, nr, width, height):
+                        continue
+                    if (nc, nr) in visited:
+                        continue
+                    if terrain[nr][nc] not in land:
+                        continue
+                    visited.add((nc, nr))
+                    stack.append((nc, nr))
+            if cells:
+                cx = round(sum(c for c, _ in cells) / len(cells), 2)
+                cy = round(sum(r for _, r in cells) / len(cells), 2)
+                continents.append({"size": len(cells), "centroid": {"x": cx, "y": cy}})
+    continents.sort(key=lambda c: c["size"], reverse=True)
+    for idx, continent in enumerate(continents, start=1):
+        continent["id"] = idx
+    return continents
+
+
+def _elevation_band(elevation):
+    if elevation >= 1.45:
+        return "high"
+    if elevation >= 0.85:
+        return "mid"
+    if elevation >= 0.25:
+        return "low"
+    return "sea"
+
+
+def _terrain_role(terrain):
+    if terrain in {"water", "lake"}:
+        return "waterbody"
+    if terrain in {"shore", "river"}:
+        return "hydrology"
+    if terrain == "mountain":
+        return "highland"
+    if terrain == "forest":
+        return "woodland"
+    if terrain == "desert":
+        return "arid"
+    return "land"
 
 
 def _init_hex_map(width, height):
+    height_map = _generate_continents(width, height)
+    _add_mountain_ranges(height_map, width, height)
+    terrain, river_paths = _assign_biomes(height_map)
+    continents = _continent_clusters(terrain)
+
     hexes = []
     for row in range(height):
         line = []
         for col in range(width):
-            terrain = _terrain_for(col, row, width, height)
             q = col - (row // 2)
             r = row
+            terrain_key = terrain[row][col]
             line.append(
                 {
                     "col": col,
@@ -180,11 +465,116 @@ def _init_hex_map(width, height):
                     "cube_x": q,
                     "cube_z": r,
                     "cube_y": -q - r,
-                    "terrain": terrain if terrain in TERRAIN_TYPES else "plains",
+                    "elevation": round(height_map[row][col], 3),
+                    "terrain": terrain_key if terrain_key in TERRAIN_TYPES else "plains",
                 }
             )
         hexes.append(line)
-    return {"width": width, "height": height, "hexes": hexes}
+    return {
+        "width": width,
+        "height": height,
+        "hexes": hexes,
+        "rivers": [[{"x": c, "y": r} for c, r in path] for path in river_paths],
+        "continents": continents[:6],
+    }
+
+
+def _cell_terrain(col, row):
+    return game_state["map"]["hexes"][row][col]["terrain"]
+
+
+def _score_spawn(col, row, required, preferred_adjacent):
+    terrain = _cell_terrain(col, row)
+    score = 0.0
+    if terrain in required:
+        score += 2.0
+    if terrain in {"plains", "forest", "shore", "river"}:
+        score += 1.0
+
+    neighbors = [(c, r) for c, r in _axial_neighbors(col, row) if _within(c, r, BOARD_WIDTH, BOARD_HEIGHT)]
+    for nc, nr in neighbors:
+        n_terrain = _cell_terrain(nc, nr)
+        if n_terrain in preferred_adjacent:
+            score += 0.6
+        if n_terrain == terrain:
+            score += 0.2
+        if n_terrain in {"water", "shore"} and terrain in {"shore", "river", "plains"}:
+            score += 0.15
+    return score
+
+
+def _terrain_walkable(col, row):
+    return _cell_terrain(col, row) not in {"water", "lake"}
+
+
+def _generate_spawn_points():
+    spawn_points = {}
+    used = set()
+    for faction_name in [f["name"] for f in factions]:
+        rule = FACTION_ENVIRONMENT_RULES[faction_name]
+        required = rule["required"]
+        preferred_adjacent = rule["preferred_adjacent"]
+        candidates = []
+        for row in range(BOARD_HEIGHT):
+            for col in range(BOARD_WIDTH):
+                if not _terrain_walkable(col, row):
+                    continue
+                if (col, row) in used:
+                    continue
+                terrain = _cell_terrain(col, row)
+                if terrain not in required and terrain not in {"plains", "forest", "shore", "river", "mountain"}:
+                    continue
+                score = _score_spawn(col, row, required, preferred_adjacent)
+                candidates.append((score, col, row))
+        candidates.sort(reverse=True)
+
+        if not candidates:
+            fallback = (BOARD_WIDTH // 2, BOARD_HEIGHT // 2)
+            spawn_points[faction_name] = [fallback]
+            used.add(fallback)
+            continue
+
+        center = (candidates[0][1], candidates[0][2])
+        points = [center]
+        used.add(center)
+
+        # etsi lisäspawnit lähiympäristöstä
+        frontier = [center]
+        seen = {center}
+        while frontier and len(points) < len(FACTION_LOADOUTS[faction_name]):
+            col, row = frontier.pop(0)
+            for nc, nr in _axial_neighbors(col, row):
+                if not _within(nc, nr, BOARD_WIDTH, BOARD_HEIGHT):
+                    continue
+                if (nc, nr) in seen:
+                    continue
+                seen.add((nc, nr))
+                if (nc, nr) in used:
+                    continue
+                if not _terrain_walkable(nc, nr):
+                    continue
+                # pidä spawnit heimon ympäristöön sopivina
+                if _score_spawn(nc, nr, required, preferred_adjacent) < 1.2:
+                    frontier.append((nc, nr))
+                    continue
+                points.append((nc, nr))
+                used.add((nc, nr))
+                if len(points) >= len(FACTION_LOADOUTS[faction_name]):
+                    break
+                frontier.append((nc, nr))
+
+        # viimeistele jos paikalliset ruudut eivät riittäneet
+        if len(points) < len(FACTION_LOADOUTS[faction_name]):
+            for _, col, row in candidates[1:]:
+                if (col, row) in used:
+                    continue
+                points.append((col, row))
+                used.add((col, row))
+                if len(points) >= len(FACTION_LOADOUTS[faction_name]):
+                    break
+
+        spawn_points[faction_name] = points
+    return spawn_points
 
 
 def _create_unit(faction_name, unit_key, side):
@@ -215,11 +605,12 @@ def _init_factions_state(player_faction_name):
         unit_counts = {unit_key: 0 for unit_key in UNIT_TYPES.keys()}
         for unit_key in loadout:
             unit_counts[unit_key] += 1
-        spawn = FACTION_SPAWN_POINTS[name][0]
+        spawn = game_state["spawn_points"][name][0]
         faction_state[name] = {
             "name": name,
             "color": faction.get("color", "gray"),
             "symbol": FACTION_SYMBOLS.get(name, "🏳️"),
+            "spawn_role": FACTION_ROLE_LABELS.get(name, "Heimo"),
             "is_player": name == player_faction_name,
             "unit_counts": unit_counts,
             "total_units": len(loadout),
@@ -230,11 +621,7 @@ def _init_factions_state(player_faction_name):
 
 
 def _serialize_factions_state():
-    ordered = []
-    for faction in factions:
-        state = game_state["factions_state"].get(faction["name"])
-        ordered.append(state)
-    return ordered
+    return [game_state["factions_state"].get(faction["name"]) for faction in factions]
 
 
 def _serialize_board():
@@ -317,7 +704,7 @@ def _place_initial_units(player_faction_name):
     board = game_state["board"]
     for faction_name in _all_faction_names():
         loadout = FACTION_LOADOUTS[faction_name]
-        spawn_points = FACTION_SPAWN_POINTS[faction_name]
+        spawn_points = game_state["spawn_points"][faction_name]
         side = "player" if faction_name == player_faction_name else "enemy"
         for idx, unit_key in enumerate(loadout):
             x, y = spawn_points[idx]
@@ -384,6 +771,7 @@ def _resolve_attack(player_name):
     defender_entry = _nearest_enemy(attacker_x, attacker_y, player_name)
     if not defender_entry:
         return "Vastustajan pelinappuloita ei löytynyt."
+
     defender_x, defender_y, defender = defender_entry
     attack_die, defense_die, attack_total, defense_total = _battle_roll(attacker, defender)
     game_state["battle_event_id"] += 1
@@ -402,6 +790,7 @@ def _resolve_attack(player_name):
         "event_id": game_state["battle_event_id"],
         "battle_positions": {"attacker": {"x": attacker_x, "y": attacker_y}, "defender": {"x": defender_x, "y": defender_y}},
     }
+
     board = game_state["board"]
     if attack_total > defense_total:
         damage = max(1, attack_die + attacker["strength"] // 3 - defender["defense"] // 4)
@@ -423,6 +812,7 @@ def _resolve_attack(player_name):
                 result["outcome"] = "hyökkääjä kaatui"
         else:
             result["outcome"] = "torjunta ilman vahinkoa"
+
     _recount_faction_units()
     _record_battle(result)
     return f"Taistelu: hyökkäysnoppa {attack_die}, puolustusnoppa {defense_die}. Tulos: {result['outcome']}."
@@ -439,10 +829,15 @@ def _serialize_hexes():
             base_hex = game_state["map"]["hexes"][row][col]
             unit = board.board[row][col] if row < board.height and col < board.width else None
             faction_marker = None
-            for faction_name, points in FACTION_SPAWN_POINTS.items():
-                if points[0] == (col, row):
-                    faction_marker = {"name": faction_name, "short": faction_name.split(" ")[0][0], "symbol": FACTION_SYMBOLS.get(faction_name, "🏳️")}
+            for faction_name, points in game_state["spawn_points"].items():
+                if points and points[0] == (col, row):
+                    faction_marker = {
+                        "name": faction_name,
+                        "short": faction_name.split(" ")[0][0],
+                        "symbol": FACTION_SYMBOLS.get(faction_name, "🏳️"),
+                    }
                     break
+
             units = []
             if unit:
                 units.append(
@@ -459,6 +854,7 @@ def _serialize_hexes():
                         "side": unit["side"],
                     }
                 )
+
             highlight = None
             last = game_state["battle"].get("last")
             if last:
@@ -468,13 +864,48 @@ def _serialize_hexes():
                     highlight = "attacker"
                 elif dpos["x"] == col and dpos["y"] == row:
                     highlight = "defender"
+
             line.append(
                 {
                     "col": col,
                     "row": row,
                     "q": base_hex["q"],
                     "r": base_hex["r"],
+                    "elevation": base_hex["elevation"],
                     "terrain": base_hex["terrain"],
+                    "shoreline": base_hex["terrain"] in {"shore", "water"} or any(
+                        _within(nc, nr, game_state["map"]["width"], game_state["map"]["height"])
+                        and game_state["map"]["hexes"][nr][nc]["terrain"] in {"shore", "water"}
+                        for nc, nr in _axial_neighbors(col, row)
+                    ),
+                    "elevation_band": (
+                        "highland"
+                        if base_hex["elevation"] >= 1.25
+                        else "upland"
+                        if base_hex["elevation"] >= 0.78
+                        else "lowland"
+                        if base_hex["elevation"] >= 0.22
+                        else "coast"
+                        if base_hex["elevation"] >= -0.02
+                        else "sea"
+                    ),
+                    "terrain_role": (
+                        "high_peak"
+                        if base_hex["terrain"] == "mountain"
+                        else "inland_river"
+                        if base_hex["terrain"] == "river"
+                        else "coastal_water"
+                        if base_hex["terrain"] in {"shore", "water"}
+                        else "fertile_plain"
+                        if base_hex["terrain"] == "plains"
+                        else "woodland"
+                        if base_hex["terrain"] == "forest"
+                        else "arid_zone"
+                        if base_hex["terrain"] == "desert"
+                        else "lake_basin"
+                        if base_hex["terrain"] == "lake"
+                        else "land"
+                    ),
                     "faction_marker": faction_marker,
                     "units": units,
                     "highlight": highlight,
@@ -501,10 +932,12 @@ def _game_snapshot(message=""):
         "board": _serialize_board(),
         "hexes": _serialize_hexes(),
         "map_size": {"width": game_state["map"]["width"], "height": game_state["map"]["height"]},
+        "rivers": game_state["map"].get("rivers", []),
+        "continents": game_state["map"].get("continents", []),
         "terrain_types": TERRAIN_TYPES,
         "available_actions": actions,
         "action_labels": _action_labels(actions),
-        "faction": game_state["player_faction"]["name"],
+        "faction": game_state["player_faction"]["name"] if game_state["player_faction"] else "",
         "factions_state": factions_state,
         "factions": factions_state,
         "unit_types": UNIT_TYPES,
@@ -554,12 +987,12 @@ def _apply_action(action):
             return "Yksikköä ei löytynyt liikkumiseen."
         sx, sy = source
         tx, ty = min(sx + 1, board.width - 1), min(sy + 1, board.height - 1)
-        if board.board[ty][tx] is None:
+        if board.board[ty][tx] is None and _cell_terrain(tx, ty) not in {"water", "lake"}:
             board.board[ty][tx] = board.board[sy][sx]
             board.board[sy][sx] = None
             _recount_faction_units()
             return "Yksikkö liikkui yhden alueen eteenpäin."
-        return "Kohderuutu on varattu, liike epäonnistui."
+        return "Kohderuutu on varattu tai kulkukelvoton, liike epäonnistui."
     if action == "attack":
         return _resolve_attack(player_name)
     if action == "build":
@@ -635,6 +1068,7 @@ def start_game():
     player_faction = factions[faction_choice]
     board = GameBoard(BOARD_WIDTH, BOARD_HEIGHT)
     diplomacy = DiplomacySystem()
+
     game_state["board"] = board
     game_state["diplomacy"] = diplomacy
     game_state["player_faction"] = player_faction
@@ -646,14 +1080,17 @@ def start_game():
     game_state["event_index"] = 0
     game_state["resources"] = _starting_resources(player_faction["name"])
     game_state["battle"] = {"last": None, "history": []}
-    game_state["factions_state"] = _init_factions_state(player_faction["name"])
     game_state["map"] = _init_hex_map(BOARD_WIDTH, BOARD_HEIGHT)
+    game_state["spawn_points"] = _generate_spawn_points()
+    game_state["factions_state"] = _init_factions_state(player_faction["name"])
     game_state["next_unit_id"] = 1
     game_state["battle_event_id"] = 0
+
     _place_initial_units(player_faction["name"])
     _recount_faction_units()
     _set_winner_if_reached()
-    snapshot = _game_snapshot("Peli aloitettu: Civilization-tyylinen heksalauta ja heimot valmiina.")
+
+    snapshot = _game_snapshot("Peli aloitettu: maantieteellisesti realistinen heksamaailma luotu.")
     snapshot["status"] = "started"
     return jsonify(snapshot)
 
