@@ -211,6 +211,14 @@ h3 {
     filter: drop-shadow(0 0 8px var(--hex-select-glow));
 }
 
+.hex-selection-ring {
+    fill: none;
+    stroke: var(--hex-select);
+    stroke-width: 2.8;
+    filter: drop-shadow(0 0 8px var(--hex-select-glow));
+    pointer-events: none;
+}
+
 .hex-tile.highlight-attacker .hex-shape {
     stroke: #f39c12;
     stroke-width: 2.8;
