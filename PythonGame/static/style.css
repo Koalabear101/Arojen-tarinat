@@ -182,28 +182,7 @@ h3 {
 .hex-shape {
     stroke: var(--hex-outline);
     stroke-width: 1.2;
-    transition: transform 120ms ease, filter 120ms ease, stroke 120ms ease;
-}
-
-.hex-tile.biome-forest .hex-shape {
-    fill: var(--biome-forest);
-}
-
-.hex-tile.biome-mountain .hex-shape {
-    fill: var(--biome-mountain);
-}
-
-.hex-tile.biome-plains .hex-shape {
-    fill: var(--biome-plains);
-}
-
-.hex-tile.biome-desert .hex-shape {
-    fill: var(--biome-desert);
-}
-
-.hex-tile.biome-water .hex-shape,
-.hex-tile.biome-lake .hex-shape {
-    fill: var(--biome-water);
+    transition: transform 120ms ease, filter 120ms ease, stroke 120ms ease, fill 120ms ease;
 }
 
 .hex-tile.shoreline .hex-shape {
@@ -230,6 +209,23 @@ h3 {
 .hex-tile.river-segment .hex-shape {
     stroke: rgba(122, 179, 224, 0.95);
     stroke-width: 2.1;
+}
+
+.river-line {
+    stroke: rgba(72, 165, 224, 0.98);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    opacity: 0.95;
+    pointer-events: none;
+}
+
+.hex-role-overlay {
+    pointer-events: none;
+    opacity: 0.34;
+}
+
+.hex-role-overlay.terrain-role-mountain {
+    opacity: 0.45;
 }
 
 .terrain-icon {

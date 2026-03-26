@@ -28,14 +28,11 @@ const victoryIcons = {
     technology: "⚙️",
 };
 
-const terrainIcons = {
-    plains: "🌿",
-    forest: "🌲",
-    mountain: "⛰",
-    desert: "◌",
-    water: "≈",
-    lake: "≈",
-    river: "≋",
+const elevationColors = {
+    ocean: "#2f5f97",
+    coast: "#74a9d8",
+    plains: "#8dbb6f",
+    hills: "#4f7f3f",
 };
 
 const factionSigil = {
@@ -87,6 +84,204 @@ function flattenHexes(hexGrid) {
         }
     });
     return flattened;
+}
+
+function coordKey(col, row) {
+    return `${col},${row}`;
+}
+
+function offsetNeighbors(col, row) {
+    const even = row % 2 === 0;
+    const deltas = even
+        ? [[-1, -1], [0, -1], [-1, 0], [1, 0], [-1, 1], [0, 1]]
+        : [[0, -1], [1, -1], [-1, 0], [1, 0], [0, 1], [1, 1]];
+    return deltas.map(([dx, dy]) => [col + dx, row + dy]);
+}
+
+function normalizeElevationBand(band) {
+    if (band === "sea" || band === "ocean") {
+        return "ocean";
+    }
+    if (band === "coast") {
+        return "coast";
+    }
+    if (band === "highland" || band === "mountains") {
+        return "mountains";
+    }
+    if (band === "upland" || band === "hills") {
+        return "hills";
+    }
+    return "plains";
+}
+
+function isLandBand(band) {
+    return band === "plains" || band === "hills" || band === "mountains";
+}
+
+function buildHexLookup(hexes) {
+    const lookup = new Map();
+    hexes.forEach((hex) => {
+        lookup.set(coordKey(hex.col, hex.row), hex);
+    });
+    return lookup;
+}
+
+function buildContinentIds(hexes, lookup) {
+    const continentIds = new Map();
+    let nextId = 1;
+    hexes.forEach((hex) => {
+        const key = coordKey(hex.col, hex.row);
+        if (continentIds.has(key)) {
+            return;
+        }
+        const band = normalizeElevationBand(hex.elevation_band);
+        if (!isLandBand(band)) {
+            return;
+        }
+        const queue = [hex];
+        continentIds.set(key, nextId);
+        while (queue.length) {
+            const current = queue.shift();
+            offsetNeighbors(current.col, current.row).forEach(([nc, nr]) => {
+                const nKey = coordKey(nc, nr);
+                if (continentIds.has(nKey)) {
+                    return;
+                }
+                const neighbor = lookup.get(nKey);
+                if (!neighbor) {
+                    return;
+                }
+                if (!isLandBand(normalizeElevationBand(neighbor.elevation_band))) {
+                    return;
+                }
+                continentIds.set(nKey, nextId);
+                queue.push(neighbor);
+            });
+        }
+        nextId += 1;
+    });
+    return continentIds;
+}
+
+function buildRiverNetwork(rivers) {
+    const network = new Map();
+    if (!Array.isArray(rivers)) {
+        return network;
+    }
+    rivers.forEach((riverPath) => {
+        if (!Array.isArray(riverPath)) {
+            return;
+        }
+        riverPath.forEach((point, index) => {
+            const key = coordKey(point.x, point.y);
+            if (!network.has(key)) {
+                network.set(key, new Set());
+            }
+            if (index > 0) {
+                const prev = riverPath[index - 1];
+                network.get(key).add(coordKey(prev.x, prev.y));
+            }
+            if (index < riverPath.length - 1) {
+                const next = riverPath[index + 1];
+                network.get(key).add(coordKey(next.x, next.y));
+            }
+        });
+    });
+    return network;
+}
+
+function addMapDefs(svg) {
+    const defs = document.createElementNS(SVG_NS, "defs");
+
+    const mountainGradient = document.createElementNS(SVG_NS, "linearGradient");
+    mountainGradient.setAttribute("id", "elev-mountains-gradient");
+    mountainGradient.setAttribute("x1", "0%");
+    mountainGradient.setAttribute("y1", "100%");
+    mountainGradient.setAttribute("x2", "0%");
+    mountainGradient.setAttribute("y2", "0%");
+    const mStopLow = document.createElementNS(SVG_NS, "stop");
+    mStopLow.setAttribute("offset", "0%");
+    mStopLow.setAttribute("stop-color", "#565f66");
+    const mStopHigh = document.createElementNS(SVG_NS, "stop");
+    mStopHigh.setAttribute("offset", "100%");
+    mStopHigh.setAttribute("stop-color", "#bbc4cb");
+    mountainGradient.appendChild(mStopLow);
+    mountainGradient.appendChild(mStopHigh);
+    defs.appendChild(mountainGradient);
+
+    const forestPattern = document.createElementNS(SVG_NS, "pattern");
+    forestPattern.setAttribute("id", "role-forest-pattern");
+    forestPattern.setAttribute("width", "12");
+    forestPattern.setAttribute("height", "12");
+    forestPattern.setAttribute("patternUnits", "userSpaceOnUse");
+    const forestTriangle = document.createElementNS(SVG_NS, "path");
+    forestTriangle.setAttribute("d", "M2,10 L5,4 L8,10 Z");
+    forestTriangle.setAttribute("fill", "rgba(25, 64, 27, 0.45)");
+    const forestDot = document.createElementNS(SVG_NS, "circle");
+    forestDot.setAttribute("cx", "10");
+    forestDot.setAttribute("cy", "3");
+    forestDot.setAttribute("r", "1.4");
+    forestDot.setAttribute("fill", "rgba(34, 74, 38, 0.42)");
+    forestPattern.appendChild(forestTriangle);
+    forestPattern.appendChild(forestDot);
+    defs.appendChild(forestPattern);
+
+    const mountainPattern = document.createElementNS(SVG_NS, "pattern");
+    mountainPattern.setAttribute("id", "role-mountain-pattern");
+    mountainPattern.setAttribute("width", "8");
+    mountainPattern.setAttribute("height", "8");
+    mountainPattern.setAttribute("patternUnits", "userSpaceOnUse");
+    const mLineA = document.createElementNS(SVG_NS, "path");
+    mLineA.setAttribute("d", "M0,7 L7,0");
+    mLineA.setAttribute("stroke", "rgba(48, 54, 60, 0.35)");
+    mLineA.setAttribute("stroke-width", "1");
+    const mLineB = document.createElementNS(SVG_NS, "path");
+    mLineB.setAttribute("d", "M-2,8 L0,6 M6,2 L8,0");
+    mLineB.setAttribute("stroke", "rgba(48, 54, 60, 0.25)");
+    mLineB.setAttribute("stroke-width", "1");
+    mountainPattern.appendChild(mLineA);
+    mountainPattern.appendChild(mLineB);
+    defs.appendChild(mountainPattern);
+
+    const desertPattern = document.createElementNS(SVG_NS, "pattern");
+    desertPattern.setAttribute("id", "role-desert-pattern");
+    desertPattern.setAttribute("width", "10");
+    desertPattern.setAttribute("height", "10");
+    desertPattern.setAttribute("patternUnits", "userSpaceOnUse");
+    const dDotA = document.createElementNS(SVG_NS, "circle");
+    dDotA.setAttribute("cx", "2");
+    dDotA.setAttribute("cy", "2");
+    dDotA.setAttribute("r", "0.9");
+    dDotA.setAttribute("fill", "rgba(143, 113, 63, 0.35)");
+    const dDotB = document.createElementNS(SVG_NS, "circle");
+    dDotB.setAttribute("cx", "7");
+    dDotB.setAttribute("cy", "6");
+    dDotB.setAttribute("r", "1.1");
+    dDotB.setAttribute("fill", "rgba(143, 113, 63, 0.28)");
+    desertPattern.appendChild(dDotA);
+    desertPattern.appendChild(dDotB);
+    defs.appendChild(desertPattern);
+
+    svg.appendChild(defs);
+}
+
+function appendTerrainOverlay(tileGroup, points, terrainRole) {
+    let patternId = null;
+    if (terrainRole === "woodland") {
+        patternId = "role-forest-pattern";
+    } else if (terrainRole === "high_peak") {
+        patternId = "role-mountain-pattern";
+    } else if (terrainRole === "arid_zone") {
+        patternId = "role-desert-pattern";
+    }
+    if (!patternId) {
+        return;
+    }
+    const overlay = document.createElementNS(SVG_NS, "polygon");
+    overlay.setAttribute("points", points);
+    overlay.setAttribute("class", "terrain-role-overlay");
+    overlay.setAttribute("fill", `url(#${patternId})`);
+    tileGroup.appendChild(overlay);
 }
 
 function ensureTooltip() {
@@ -168,14 +363,22 @@ function renderHexBoard(data) {
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", String(width));
     svg.setAttribute("height", String(height));
+    addMapDefs(svg);
+
+    const hexLookup = buildHexLookup(positioned);
+    const continentIds = buildContinentIds(positioned, hexLookup);
+    const riverNetwork = buildRiverNetwork(data.rivers || []);
 
     positioned.forEach((hex) => {
         const cx = hex.px - minX + margin;
         const cy = hex.py - minY + margin;
         const key = `${hex.q},${hex.r}`;
+        const coord = coordKey(hex.col, hex.row);
+        const elevationBand = normalizeElevationBand(hex.elevation_band);
 
         const tileGroup = document.createElementNS(SVG_NS, "g");
         tileGroup.setAttribute("class", "hex-tile");
+        tileGroup.classList.add(`elev-${elevationBand}`);
         tileGroup.dataset.key = key;
         if (selectedHexKey === key) {
             tileGroup.classList.add("selected");
@@ -191,15 +394,58 @@ function renderHexBoard(data) {
 
         const polygon = document.createElementNS(SVG_NS, "polygon");
         polygon.setAttribute("points", hexPoints(cx, cy, size));
-        polygon.setAttribute("class", `hex-shape biome-${hex.terrain}`);
+        polygon.setAttribute("class", "hex-shape");
+        if (elevationBand === "mountains") {
+            polygon.setAttribute("fill", "url(#elev-mountains-gradient)");
+        } else {
+            polygon.setAttribute("fill", elevationColors[elevationBand] || elevationColors.plains);
+        }
         tileGroup.appendChild(polygon);
 
-        const biomeIcon = document.createElementNS(SVG_NS, "text");
-        biomeIcon.setAttribute("x", String(cx));
-        biomeIcon.setAttribute("y", String(cy + 4));
-        biomeIcon.setAttribute("class", "hex-biome-icon");
-        biomeIcon.textContent = terrainIcons[hex.terrain] || "·";
-        tileGroup.appendChild(biomeIcon);
+        const currentContinentId = continentIds.get(coord);
+        if (currentContinentId != null) {
+            const borderEdges = offsetNeighbors(hex.col, hex.row).reduce((sum, [nc, nr]) => {
+                const neighborId = continentIds.get(coordKey(nc, nr));
+                return neighborId != null && neighborId !== currentContinentId ? sum + 1 : sum;
+            }, 0);
+            if (borderEdges > 0) {
+                const continentBlend = document.createElementNS(SVG_NS, "polygon");
+                continentBlend.setAttribute("points", hexPoints(cx, cy, size));
+                continentBlend.setAttribute("class", "continent-edge-blend");
+                continentBlend.setAttribute("opacity", String(Math.min(0.16, 0.05 + borderEdges * 0.02)));
+                tileGroup.appendChild(continentBlend);
+            }
+        }
+
+        appendTerrainOverlay(tileGroup, hexPoints(cx, cy, size), hex.terrain_role);
+
+        const riverLinks = riverNetwork.get(coord);
+        if (riverLinks && riverLinks.size > 0) {
+            const linkedHexes = [...riverLinks]
+                .map((neighborKey) => hexLookup.get(neighborKey))
+                .filter(Boolean);
+            if (linkedHexes.length) {
+                linkedHexes.sort((a, b) => (b.elevation ?? 0) - (a.elevation ?? 0));
+                const high = linkedHexes[0];
+                const low = linkedHexes[linkedHexes.length - 1];
+                const highPos = { x: high.px - minX + margin, y: high.py - minY + margin };
+                const lowPos = { x: low.px - minX + margin, y: low.py - minY + margin };
+                const riverLine = document.createElementNS(SVG_NS, "line");
+                if (linkedHexes.length > 1) {
+                    riverLine.setAttribute("x1", String((highPos.x + cx) / 2));
+                    riverLine.setAttribute("y1", String((highPos.y + cy) / 2));
+                    riverLine.setAttribute("x2", String((lowPos.x + cx) / 2));
+                    riverLine.setAttribute("y2", String((lowPos.y + cy) / 2));
+                } else {
+                    riverLine.setAttribute("x1", String(cx));
+                    riverLine.setAttribute("y1", String(cy));
+                    riverLine.setAttribute("x2", String((highPos.x + cx) / 2));
+                    riverLine.setAttribute("y2", String((highPos.y + cy) / 2));
+                }
+                riverLine.setAttribute("class", "river-flow");
+                tileGroup.appendChild(riverLine);
+            }
+        }
 
         if (hex.faction_marker) {
             const spawnBadge = document.createElementNS(SVG_NS, "circle");
