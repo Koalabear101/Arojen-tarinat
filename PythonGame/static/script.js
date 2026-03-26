@@ -490,6 +490,13 @@ function renderHexBoard(data) {
             }
         }
 
+        if (selectedHexKey === key) {
+            const selectionRing = document.createElementNS(SVG_NS, "polygon");
+            selectionRing.setAttribute("points", hexPoints(cx, cy, size * 1.01));
+            selectionRing.setAttribute("class", "hex-selection-ring");
+            tileGroup.appendChild(selectionRing);
+        }
+
         if (hex.faction_marker) {
             const spawnBadge = document.createElementNS(SVG_NS, "circle");
             spawnBadge.setAttribute("cx", String(cx - size * 0.5));
