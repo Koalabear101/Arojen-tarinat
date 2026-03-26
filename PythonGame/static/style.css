@@ -520,3 +520,238 @@ button:disabled {
     color: var(--muted);
     margin-top: 0;
 }
+
+.setup-lobby {
+    position: relative;
+    overflow: hidden;
+    border-color: #b5aa8f;
+    background:
+        linear-gradient(160deg, rgba(251, 244, 229, 0.94), rgba(232, 221, 200, 0.95)),
+        radial-gradient(circle at 15% 24%, rgba(102, 130, 88, 0.2), transparent 46%),
+        radial-gradient(circle at 85% 75%, rgba(92, 126, 152, 0.2), transparent 50%);
+}
+
+.setup-backdrop-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.62;
+    background:
+        radial-gradient(circle at 22% 28%, rgba(88, 120, 84, 0.2), transparent 42%),
+        radial-gradient(circle at 69% 64%, rgba(52, 108, 158, 0.18), transparent 44%),
+        radial-gradient(circle at 48% 40%, rgba(167, 143, 108, 0.2), transparent 48%),
+        repeating-linear-gradient(
+            120deg,
+            rgba(57, 142, 203, 0.08) 0,
+            rgba(57, 142, 203, 0.08) 2px,
+            transparent 2px,
+            transparent 18px
+        ),
+        repeating-linear-gradient(
+            -30deg,
+            rgba(95, 77, 53, 0.05) 0,
+            rgba(95, 77, 53, 0.05) 3px,
+            transparent 3px,
+            transparent 14px
+        );
+    filter: blur(0.25px);
+}
+
+.setup-lobby > * {
+    position: relative;
+    z-index: 1;
+}
+
+.faction-lobby-form {
+    display: grid;
+    gap: 16px;
+}
+
+.faction-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.faction-card {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    text-align: left;
+    border-radius: 14px;
+    border: 1px solid rgba(90, 78, 58, 0.32);
+    padding: 12px;
+    min-height: 166px;
+    color: #2c291f;
+    transform: translateY(0) scale(1);
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, filter 180ms ease;
+    background:
+        linear-gradient(170deg, rgba(251, 246, 236, 0.88), rgba(233, 223, 201, 0.9)),
+        radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.faction-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 220ms ease;
+    background:
+        repeating-linear-gradient(
+            35deg,
+            rgba(52, 45, 33, 0.09) 0,
+            rgba(52, 45, 33, 0.09) 2px,
+            transparent 2px,
+            transparent 10px
+        ),
+        radial-gradient(circle at 24% 30%, rgba(255, 255, 255, 0.15), transparent 40%);
+    pointer-events: none;
+}
+
+.faction-card:hover {
+    transform: translateY(-3px) scale(1.05);
+    border-color: rgba(70, 92, 128, 0.55);
+    box-shadow: 0 10px 24px rgba(42, 34, 25, 0.26);
+}
+
+.faction-card:hover::before,
+.faction-card.is-hovered::before {
+    opacity: 0.65;
+}
+
+.faction-card.is-selected {
+    border-color: rgba(80, 130, 205, 0.9);
+    box-shadow:
+        0 0 0 2px rgba(104, 162, 255, 0.34),
+        0 10px 24px rgba(43, 61, 80, 0.26);
+}
+
+.faction-card.is-selected::before {
+    opacity: 0.75;
+}
+
+.faction-card-emblem {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid rgba(52, 44, 35, 0.2);
+    font-size: 1.05rem;
+}
+
+.faction-card-head {
+    display: grid;
+    gap: 2px;
+}
+
+.faction-card-title {
+    font-size: 1rem;
+}
+
+.faction-card-role {
+    color: #5e5648;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.faction-card-affinity {
+    font-size: 0.85rem;
+    color: #4f4739;
+}
+
+.faction-card-spec {
+    font-size: 0.82rem;
+    color: #5c5345;
+    line-height: 1.35;
+}
+
+.faction-card.affinity-forest {
+    background:
+        linear-gradient(160deg, rgba(229, 243, 221, 0.94), rgba(181, 209, 160, 0.9)),
+        radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.faction-card.affinity-plains {
+    background:
+        linear-gradient(160deg, rgba(240, 238, 208, 0.94), rgba(206, 203, 146, 0.9)),
+        radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.faction-card.affinity-mountain {
+    background:
+        linear-gradient(160deg, rgba(222, 226, 232, 0.94), rgba(167, 178, 190, 0.9)),
+        radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.faction-card.affinity-river,
+.faction-card.affinity-coast {
+    background:
+        linear-gradient(160deg, rgba(220, 239, 251, 0.94), rgba(154, 197, 230, 0.9)),
+        radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.setup-preview-panel {
+    border: 1px solid rgba(105, 93, 73, 0.35);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(247, 241, 227, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.setup-preview-topline h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #3e4f3d;
+}
+
+.setup-preview-topline p {
+    margin: 4px 0 0;
+    color: #5d5546;
+    font-size: 0.86rem;
+}
+
+.setup-preview-map-wrap {
+    margin-top: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(106, 94, 75, 0.35);
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(88, 124, 87, 0.2), transparent 45%),
+        radial-gradient(circle at 78% 74%, rgba(80, 149, 201, 0.2), transparent 44%),
+        linear-gradient(180deg, rgba(237, 229, 210, 0.98), rgba(220, 208, 183, 0.98));
+}
+
+#setup-preview-map {
+    width: 100%;
+    height: 180px;
+    display: block;
+}
+
+.setup-preview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.preview-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(93, 80, 60, 0.28);
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #4e473a;
+    background: rgba(255, 252, 246, 0.9);
+}
+
+.start-lobby-button {
+    justify-self: start;
+    padding: 11px 18px;
+}

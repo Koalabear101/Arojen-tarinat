@@ -49,6 +49,53 @@ const unitGlyphs = {
     merchant: "🧭",
 };
 
+const terrainAffinityMeta = {
+    forest: { icon: "🌲", label: "Metsä" },
+    plains: { icon: "🌾", label: "Tasanko" },
+    mountain: { icon: "⛰️", label: "Vuoristo" },
+    river: { icon: "🟦", label: "Joki" },
+    coast: { icon: "🌊", label: "Rannikko" },
+};
+
+const factionLobbyProfiles = {
+    "Mongoli-heimo": {
+        emblem: "🐺",
+        specialization: "Nomadic Cavalry",
+        roleLabel: "Stepin paimentolaisheimo",
+        roleClass: "role-plains",
+        affinities: ["plains", "river"],
+        likelyTerrain: "Kuiva steppi ja jokilaakso",
+        elevationLabel: "Matala ylänkö",
+    },
+    "Kiinan dynastia": {
+        emblem: "🐉",
+        specialization: "Mountain Defenders",
+        roleLabel: "Vuoristo-linnoittajat",
+        roleClass: "role-mountain",
+        affinities: ["mountain", "river", "forest"],
+        likelyTerrain: "Vuorten juuret ja jokitasanko",
+        elevationLabel: "Kukkulat -> ylänkö",
+    },
+    "Persialainen valtakunta": {
+        emblem: "🦁",
+        specialization: "Trade Confederation",
+        roleLabel: "Kauppaliitto",
+        roleClass: "role-coast",
+        affinities: ["coast", "river", "plains"],
+        likelyTerrain: "Rannikko ja jokisuisto",
+        elevationLabel: "Matala rannikko",
+    },
+    "Venäläiset ruhtinaskunnat": {
+        emblem: "🦅",
+        specialization: "Northern Frontier Wardens",
+        roleLabel: "Metsärajan ruhtinaat",
+        roleClass: "role-forest",
+        affinities: ["forest", "river", "plains"],
+        likelyTerrain: "Metsävyöhyke ja jokiverkko",
+        elevationLabel: "Alava metsämaa",
+    },
+};
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 let boardZoom = 28;
 let selectedHexKey = null;

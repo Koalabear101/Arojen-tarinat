@@ -13,17 +13,40 @@
         <p class="app-subtitle">Civilization-henkinen heksalauta biomeilla</p>
     </header>
 
-    <div id="setup" class="container">
-        <h2>Valitse heimosi</h2>
-        <p class="help-text">Valinta asettaa heimon aloitusheksiin kartalla.</p>
-        <form id="faction-form">
-            {% for i, faction in enumerate(factions) %}
-            <label>
-                <input type="radio" name="faction" value="{{ i }}" required>
-                {{ faction.name }} - {{ faction.bonus }}
-            </label><br>
-            {% endfor %}
-            <button type="submit">Aloita peli</button>
+    <div id="setup" class="container setup-lobby">
+        <div class="setup-backdrop-layer" aria-hidden="true"></div>
+        <h2>Valitse sivilisaatio maailmanvalloitukseen</h2>
+        <p class="help-text">Valitse heimo kortista. Esikatselu näyttää todennäköisen aloitusbiomin ja korkeusvyöhykkeen.</p>
+        <form id="faction-form" class="faction-lobby-form">
+            <input type="hidden" id="selected-faction-input" name="faction" required>
+            <div id="faction-card-grid" class="faction-card-grid">
+                {% for i, faction in enumerate(factions) %}
+                <button type="button" class="faction-card" data-index="{{ i }}" data-faction-name="{{ faction.name }}" data-bonus="{{ faction.bonus }}">
+                    <span class="faction-card-emblem" aria-hidden="true">🏳️</span>
+                    <span class="faction-card-head">
+                        <strong class="faction-card-title">{{ faction.name }}</strong>
+                        <small class="faction-card-role">Heimo</small>
+                    </span>
+                    <span class="faction-card-affinity">🌍 Tuntematon ympäristö</span>
+                    <span class="faction-card-spec">{{ faction.bonus }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="setup-preview-panel">
+                <div class="setup-preview-topline">
+                    <h3 id="setup-preview-name">Heimoesikatselu</h3>
+                    <p id="setup-preview-specialization">Valitse kortti nähdäksesi maailman aloitusalueen.</p>
+                </div>
+                <div class="setup-preview-map-wrap">
+                    <svg id="setup-preview-map" aria-label="Aloitusbiomin karttaesikatselu"></svg>
+                </div>
+                <div class="setup-preview-meta">
+                    <span id="setup-preview-terrain" class="preview-chip">Biome: -</span>
+                    <span id="setup-preview-elevation" class="preview-chip">Korkeus: -</span>
+                    <span id="setup-preview-affinity" class="preview-chip">Affiniteetti: -</span>
+                </div>
+            </div>
+            <button id="start-game-button" type="submit" class="start-lobby-button">Aloita maailma valitulla heimolla</button>
         </form>
     </div>
 
