@@ -55,6 +55,8 @@ function renderState(data) {
     renderBoard(data.board, data.faction);
     renderResources(data.resources);
     renderVictoryProgress(data.victory_progress, data.victory_goals, data.winner);
+    renderFactionTokens(data.factions_state || {});
+    renderBattleView(data.battle);
     renderControls(data.available_actions, data.action_labels, data.winner);
 }
 
@@ -133,6 +135,81 @@ function renderVictoryProgress(progress, goals, winner) {
     }
 }
 
+function renderFactionTokens(factionsState) {
+    const container = document.getElementById("faction-tokens");
+    if (!container) {
+        return;
+    }
+    container.innerHTML = "";
+    if (!Array.isArray(factionsState) || factionsState.length === 0) {
+        container.innerHTML = "<p>Heimot latautuvat...</p>";
+        return;
+    }
+
+    factionsState.forEach((faction) => {
+        if (!faction) {
+            return;
+        }
+        const card = document.createElement("div");
+        card.className = `faction-token-card ${faction.is_player ? "player-faction" : ""}`;
+
+        const title = document.createElement("h4");
+        title.textContent = faction.name;
+        card.appendChild(title);
+
+        const counter = document.createElement("p");
+        counter.className = "faction-counter";
+        counter.textContent = `Yksiköt: ${faction.total_units}`;
+        card.appendChild(counter);
+
+        const units = document.createElement("div");
+        units.className = "faction-units";
+        Object.entries(faction.unit_counts || {}).forEach(([unitKey, count]) => {
+            if (count <= 0) {
+                return;
+            }
+            const unitMeta = (window.lastUnitTypes && window.lastUnitTypes[unitKey]) || {};
+            const span = document.createElement("span");
+            span.className = "unit-pill alive";
+            span.textContent = `${unitMeta.token || "•"} ${unitMeta.label || unitKey} ×${count}`;
+            span.title = `${unitMeta.label || unitKey}: ${count} kpl`;
+            units.appendChild(span);
+        });
+        card.appendChild(units);
+
+        container.appendChild(card);
+    });
+}
+
+function renderBattleView(battle) {
+    const panel = document.getElementById("battle-panel");
+    const result = document.getElementById("battle-result");
+    if (!panel || !result) {
+        return;
+    }
+    const last = battle && battle.last ? battle.last : null;
+    if (!last) {
+        panel.style.display = "none";
+        result.textContent = "Taistelua ei vielä käyty.";
+        return;
+    }
+    panel.style.display = "grid";
+
+    document.getElementById("battle-attacker-name").textContent = last.attacker_faction;
+    document.getElementById("battle-attacker-unit").textContent = `${last.attacker_unit}`;
+    document.getElementById("battle-attacker-power").textContent = last.attack_total;
+    document.getElementById("battle-attack-die").textContent = last.attack_die;
+
+    document.getElementById("battle-defender-name").textContent = last.defender_faction;
+    document.getElementById("battle-defender-unit").textContent = `${last.defender_unit}`;
+    document.getElementById("battle-defender-power").textContent = last.defense_total;
+    document.getElementById("battle-defense-die").textContent = last.defense_die;
+
+    document.getElementById("battle-damage").textContent = last.damage_to_defender;
+    document.getElementById("battle-defense-after").textContent = `Vastahyökkäysvahinko hyökkääjälle: ${last.damage_to_attacker}`;
+    result.textContent = `Tulos: ${last.outcome}`;
+}
+
 function renderControls(actions, actionLabels, winner) {
     const controls = document.getElementById("controls");
     controls.innerHTML = "";
@@ -169,6 +246,7 @@ function loadState() {
             if (data.error) {
                 return;
             }
+            window.lastUnitTypes = data.unit_types || {};
             renderState(data);
         });
 }
@@ -202,6 +280,7 @@ document.getElementById("faction-form").addEventListener("submit", function (e) 
             if (data.status === "started") {
                 document.getElementById("setup").style.display = "none";
                 document.getElementById("game").style.display = "block";
+                window.lastUnitTypes = data.unit_types || {};
                 renderState(data);
             }
         });

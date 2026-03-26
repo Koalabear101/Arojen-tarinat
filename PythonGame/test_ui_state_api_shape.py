@@ -21,6 +21,13 @@ class TestUIStateApiShape(unittest.TestCase):
         self.assertIn("victory_progress", payload)
         self.assertIn("available_actions", payload)
         self.assertIn("action_labels", payload)
+        self.assertIn("factions_state", payload)
+        self.assertTrue(isinstance(payload["factions_state"], list))
+        self.assertTrue(len(payload["factions_state"]) >= 4)
+        self.assertIn("battle", payload)
+        self.assertIn("last", payload["battle"])
+        self.assertIn("factions_state", payload)
+        self.assertIn("battle", payload)
 
 
 if __name__ == "__main__":

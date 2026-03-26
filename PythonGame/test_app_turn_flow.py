@@ -1,6 +1,6 @@
 import unittest
 
-from app import app
+from app import app, game_state
 
 
 class TestBoardGameTurnFlow(unittest.TestCase):
@@ -49,6 +49,33 @@ class TestBoardGameTurnFlow(unittest.TestCase):
                 break
 
         self.assertEqual(winner, "Teknologinen voitto")
+
+    def test_attack_uses_attack_and_defense_dice_in_battle_view(self):
+        self.client.post("/take_action", json={"action": "end_phase"})
+        response = self.client.post("/take_action", json={"action": "attack"})
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+
+        self.assertIn("battle", payload)
+        battle = payload["battle"]["last"]
+        self.assertIn("attack_die", battle)
+        self.assertIn("defense_die", battle)
+        self.assertIn("attack_total", battle)
+        self.assertIn("defense_total", battle)
+        self.assertIn("outcome", battle)
+        self.assertGreaterEqual(battle["attack_die"], 1)
+        self.assertLessEqual(battle["attack_die"], 6)
+        self.assertGreaterEqual(battle["defense_die"], 1)
+        self.assertLessEqual(battle["defense_die"], 6)
+
+    def test_start_game_exposes_factions_and_tokens(self):
+        payload = self.start_payload
+        self.assertIn("factions", payload)
+        self.assertGreaterEqual(len(payload["factions"]), 2)
+        self.assertIn("unit_types", payload)
+        self.assertIn("cavalry", payload["unit_types"])
+        self.assertIn("factions_state", payload)
+        self.assertTrue(any(item["name"] == "Mongoli-heimo" for item in payload["factions_state"]))
 
 
 if __name__ == "__main__":

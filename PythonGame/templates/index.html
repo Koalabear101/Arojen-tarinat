@@ -51,6 +51,11 @@
         </div>
 
         <div class="status-card">
+            <h3>Heimot ja pelinappulat</h3>
+            <div id="faction-pieces" class="faction-pieces"></div>
+        </div>
+
+        <div class="status-card">
             <div class="board-header">
                 <h3>Heksalauta</h3>
                 <div class="board-zoom">
@@ -75,6 +80,28 @@
         <div class="status-card">
             <h3>Vaiheen toiminnot</h3>
             <div id="controls" class="controls"></div>
+        </div>
+
+        <div class="status-card">
+            <h3>Taistelunäkymä</h3>
+            <div id="battle-view" class="battle-view">
+                <p class="battle-help">Hyökkäystoiminto heittää automaattisesti hyökkäys- ja puolustusnopat.</p>
+                <div class="battle-grid">
+                    <div>
+                        <h4>Hyökkääjä</h4>
+                        <p id="battle-attacker-name">-</p>
+                        <p>Nopat: <span id="battle-attack-rolls">-</span></p>
+                        <p>Summa: <span id="battle-attack-total">-</span></p>
+                    </div>
+                    <div>
+                        <h4>Puolustaja</h4>
+                        <p id="battle-defender-name">-</p>
+                        <p>Nopat: <span id="battle-defense-rolls">-</span></p>
+                        <p>Summa: <span id="battle-defense-total">-</span></p>
+                    </div>
+                </div>
+                <p id="battle-result" class="battle-result">Ei taistelua vielä.</p>
+            </div>
         </div>
 
         <div id="messages" class="message-log"></div>

@@ -374,6 +374,99 @@ button:disabled {
     color: #4f4736;
 }
 
+.faction-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.faction-troop-card {
+    background: rgba(251, 246, 235, 0.86);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.faction-troop-card h4 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+}
+
+.troop-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.troop-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dashed rgba(107, 93, 72, 0.28);
+}
+
+.troop-list li:last-child {
+    border-bottom: none;
+}
+
+.troop-token {
+    margin-right: 6px;
+}
+
+.battle-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.battle-side {
+    background: rgba(250, 244, 232, 0.85);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.battle-side h4 {
+    margin: 0 0 6px;
+}
+
+.dice-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 30px;
+}
+
+.die {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(20, 20, 20, 0.2);
+}
+
+.die.attack {
+    background: linear-gradient(180deg, #a95841 0%, #7e3f2f 100%);
+}
+
+.die.defense {
+    background: linear-gradient(180deg, #4a6f9f 0%, #35527a 100%);
+}
+
+.battle-result {
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #f4ecd9;
+}
+
 .winner-banner {
     margin-top: 10px;
     font-weight: bold;
