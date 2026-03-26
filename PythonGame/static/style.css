@@ -1,9 +1,10 @@
 body {
     font-family: Arial, sans-serif;
-    max-width: 800px;
+    max-width: 1024px;
     margin: 0 auto;
     padding: 20px;
     background-color: #f0f0f0;
+    color: #1b1b1b;
 }
 
 .container {
@@ -33,16 +34,16 @@ body {
 }
 
 .cell.empty {
-    background-color: #e0e0e0;
+    background-color: #ece7c9;
 }
 
 .cell.player {
-    background-color: #4CAF50;
+    background-color: #2f6f3e;
     color: white;
 }
 
 .cell.enemy {
-    background-color: #f44336;
+    background-color: #8b2e2e;
     color: white;
 }
 
@@ -51,19 +52,74 @@ button {
     margin: 5px;
     border: none;
     border-radius: 4px;
-    background-color: #2196F3;
+    background-color: #1e3a5f;
     color: white;
     cursor: pointer;
 }
 
 button:hover {
-    background-color: #0b7dda;
+    background-color: #274b77;
 }
 
-#messages {
-    margin-top: 20px;
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.status-card {
+    background: #f9f9ff;
+    border: 1px solid #dedee7;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.resource-list,
+.victory-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.resource-list li,
+.victory-list li {
+    padding: 4px 0;
+    border-bottom: 1px dashed #d6d6de;
+}
+
+.resource-list li:last-child,
+.victory-list li:last-child {
+    border-bottom: none;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.message-log {
+    margin-top: 10px;
     padding: 10px;
     background-color: #fff3cd;
     border: 1px solid #ffeaa7;
     border-radius: 4px;
+    min-height: 24px;
+}
+
+.winner-banner {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #7a5a03;
+}
+
+.hidden {
+    display: none;
+}
+
+.help-text {
+    color: #464661;
+    margin-top: 0;
 }

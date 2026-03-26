@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arojen-tarinat</title>
+    <title>Mongolien Valtakunta - Digiversio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Arojen-tarinat</h1>
+    <h1>Mongolien Valtakunta - Digiversio</h1>
     <div id="setup" class="container">
         <h2>Valitse heimosi</h2>
+        <p class="help-text">
+            Tämä versio noudattaa lautapelin 4-vaiheista vuororakennetta ja neljää voittotietä.
+        </p>
         <form id="faction-form">
             {% for i, faction in enumerate(factions) %}
             <label>
@@ -22,14 +25,35 @@
     </div>
 
     <div id="game" class="container" style="display: none;">
-        <h2>Peli - Heimo: <span id="player-faction"></span></h2>
-        <div id="board"></div>
-        <div id="controls">
-            <button id="attack-btn">Hyökkää</button>
-            <button id="diplomacy-btn">Diplomatia</button>
+        <h2>Heimo: <span id="player-faction"></span></h2>
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Vuorotila</h3>
+                <p>Vuoro: <span id="turn">1</span></p>
+                <p>Vaihe: <strong id="phase">-</strong></p>
+                <p>Painopiste: <span id="focus">-</span></p>
+            </div>
+            <div class="status-card">
+                <h3>Resurssit</h3>
+                <ul id="resources" class="resource-list"></ul>
+            </div>
         </div>
-        <div id="messages"></div>
-        <p>Vuoro: <span id="turn">0</span></p>
+
+        <div class="status-card">
+            <h3>Voittotiet</h3>
+            <ul id="victory-progress" class="victory-list"></ul>
+            <p id="winner-banner" class="winner-banner hidden"></p>
+        </div>
+
+        <h3>Pelilauta</h3>
+        <div id="board" aria-label="pelilauta"></div>
+
+        <div class="status-card">
+            <h3>Vaiheen toiminnot</h3>
+            <div id="controls" class="controls"></div>
+        </div>
+
+        <div id="messages" class="message-log"></div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
