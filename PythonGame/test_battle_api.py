@@ -42,6 +42,11 @@ class TestBattleApi(unittest.TestCase):
         self.assertIn("cavalry", first_faction["unit_counts"])
         self.assertIn("unit_types", payload)
         self.assertIn("token", payload["unit_types"]["cavalry"])
+        self.assertIn("spawn_position", first_faction)
+        self.assertIn("units", first_faction)
+        if first_faction["units"]:
+            self.assertIn("x", first_faction["units"][0])
+            self.assertIn("y", first_faction["units"][0])
 
 
 if __name__ == "__main__":

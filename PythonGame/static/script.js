@@ -28,21 +28,44 @@ const victoryIcons = {
     technology: "⚙️",
 };
 
-const biomeTypes = ["steppe", "forest", "hills", "mountain", "river", "lake"];
-const biomeIcons = {
-    steppe: "·",
+const terrainIcons = {
+    plains: "🌿",
     forest: "🌲",
-    hills: "⛰",
-    mountain: "▲",
-    river: "≈",
-    lake: "◉",
+    mountain: "⛰",
+    desert: "◌",
+    lake: "≈",
 };
 
-let boardZoom = 30;
+const unitSvg = {
+    cavalry: "🐎",
+    infantry: "🛡️",
+    chief: "🚩",
+    merchant: "🧭",
+};
 
-function biomeForHex(rowIndex, colIndex) {
-    const value = (rowIndex * 7 + colIndex * 11 + rowIndex * colIndex) % biomeTypes.length;
-    return biomeTypes[value];
+const factionSigil = {
+    "Mongoli-heimo": "🟨",
+    "Kiinan dynastia": "🟥",
+    "Persialainen valtakunta": "🟦",
+    "Venäläiset ruhtinaskunnat": "🟩",
+};
+
+let boardZoom = 34;
+let selectedHexKey = null;
+
+function axialToPixel(q, r, size) {
+    const x = size * Math.sqrt(3) * (q + r / 2);
+    const y = size * 1.5 * r;
+    return { x, y };
+}
+
+function hexPoints(cx, cy, size) {
+    const points = [];
+    for (let i = 0; i < 6; i += 1) {
+        const angle = ((60 * i - 30) * Math.PI) / 180;
+        points.push(`${cx + size * Math.cos(angle)},${cy + size * Math.sin(angle)}`);
+    }
+    return points.join(" ");
 }
 
 function renderState(data) {
@@ -52,55 +75,136 @@ function renderState(data) {
     document.getElementById("player-faction").textContent = data.faction;
     document.getElementById("messages").textContent = data.message || "";
 
-    renderBoard(data.board, data.faction);
+    renderHexBoard(data);
     renderResources(data.resources);
     renderVictoryProgress(data.victory_progress, data.victory_goals, data.winner);
-    renderFactionTokens(data.factions_state || {});
+    renderFactionTokens(data.factions_state || []);
     renderBattleView(data.battle);
     renderControls(data.available_actions, data.action_labels, data.winner);
 }
 
-function renderBoard(boardData, playerFaction) {
+function renderHexBoard(data) {
     const boardDiv = document.getElementById("board");
     boardDiv.innerHTML = "";
-
-    const boardRows = boardData.length;
-    const boardCols = boardData[0]?.length ?? 0;
-    const visibleRows = Math.max(18, boardRows + 8);
-    const visibleCols = Math.max(24, boardCols + 14);
-
-    boardDiv.style.setProperty("--hex-rows", String(visibleRows));
-    boardDiv.style.setProperty("--hex-cols", String(visibleCols));
-    boardDiv.style.setProperty("--hex-size", `${boardZoom}px`);
-
-    for (let rowIndex = 0; rowIndex < visibleRows; rowIndex += 1) {
-        for (let colIndex = 0; colIndex < visibleCols; colIndex += 1) {
-            const cell = boardData[rowIndex]?.[colIndex] ?? null;
-            const biome = biomeForHex(rowIndex, colIndex);
-            const cellDiv = document.createElement("div");
-            cellDiv.className = `hex biome-${biome}`;
-            cellDiv.dataset.odd = rowIndex % 2 === 1 ? "true" : "false";
-
-            if (cell) {
-                const label = document.createElement("span");
-                label.className = "hex-label";
-                label.textContent = cell.faction[0];
-                cellDiv.appendChild(label);
-                if (cell.faction === playerFaction) {
-                    cellDiv.classList.add("player-unit");
-                } else {
-                    cellDiv.classList.add("enemy-unit");
-                }
-            } else {
-                const icon = document.createElement("span");
-                icon.className = "hex-icon";
-                icon.textContent = biomeIcons[biome] ?? "·";
-                cellDiv.appendChild(icon);
-            }
-
-            boardDiv.appendChild(cellDiv);
-        }
+    const hexes = Array.isArray(data.hexes) ? data.hexes : [];
+    if (!hexes.length) {
+        boardDiv.textContent = "Kartta latautuu...";
+        return;
     }
+
+    const size = boardZoom;
+    const margin = size * 2;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    const positioned = hexes.map((hex) => {
+        const p = axialToPixel(hex.q, hex.r, size);
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+        return { ...hex, px: p.x, py: p.y };
+    });
+
+    const width = maxX - minX + margin * 2;
+    const height = maxY - minY + margin * 2;
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("class", "hex-map-svg");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", `${width}`);
+    svg.setAttribute("height", `${height}`);
+
+    positioned.forEach((hex) => {
+        const cx = hex.px - minX + margin;
+        const cy = hex.py - minY + margin;
+        const g = document.createElementNS(svgNS, "g");
+        const key = `${hex.q},${hex.r}`;
+        g.setAttribute("class", `hex-tile biome-${hex.terrain}`);
+        if (selectedHexKey === key) {
+            g.classList.add("selected");
+        }
+        if (hex.highlight) {
+            g.classList.add(`highlight-${hex.highlight}`);
+        }
+        g.dataset.key = key;
+        g.dataset.q = String(hex.q);
+        g.dataset.r = String(hex.r);
+
+        const poly = document.createElementNS(svgNS, "polygon");
+        poly.setAttribute("points", hexPoints(cx, cy, size));
+        poly.setAttribute("class", "hex-shape");
+        g.appendChild(poly);
+
+        const icon = document.createElementNS(svgNS, "text");
+        icon.setAttribute("x", String(cx));
+        icon.setAttribute("y", String(cy + 6));
+        icon.setAttribute("class", "terrain-icon");
+        icon.setAttribute("text-anchor", "middle");
+        icon.textContent = terrainIcons[hex.terrain] || "·";
+        g.appendChild(icon);
+
+        const factionMarker = hex.faction_marker;
+        if (factionMarker) {
+            const marker = document.createElementNS(svgNS, "text");
+            marker.setAttribute("x", String(cx - size * 0.48));
+            marker.setAttribute("y", String(cy - size * 0.35));
+            marker.setAttribute("class", "faction-marker");
+            marker.textContent = `${factionSigil[factionMarker.name] || "🏳️"} ${factionMarker.short}`;
+            g.appendChild(marker);
+
+            const nameLabel = document.createElementNS(svgNS, "text");
+            nameLabel.setAttribute("x", String(cx));
+            nameLabel.setAttribute("y", String(cy - size * 0.62));
+            nameLabel.setAttribute("class", "faction-name-label");
+            nameLabel.setAttribute("text-anchor", "middle");
+            nameLabel.textContent = factionMarker.name;
+            g.appendChild(nameLabel);
+        }
+
+        if (Array.isArray(hex.units)) {
+            hex.units.forEach((unit, idx) => {
+                const unitToken = document.createElementNS(svgNS, "g");
+                unitToken.setAttribute("class", `unit-token ${unit.side === "player" ? "player" : "enemy"}`);
+                const tokenX = cx - size * 0.32 + (idx % 2) * size * 0.34;
+                const tokenY = cy + size * 0.22 + Math.floor(idx / 2) * size * 0.24;
+
+                const circle = document.createElementNS(svgNS, "circle");
+                circle.setAttribute("cx", String(tokenX));
+                circle.setAttribute("cy", String(tokenY));
+                circle.setAttribute("r", String(size * 0.17));
+                circle.setAttribute("class", "unit-dot");
+                unitToken.appendChild(circle);
+
+                const text = document.createElementNS(svgNS, "text");
+                text.setAttribute("x", String(tokenX));
+                text.setAttribute("y", String(tokenY + 4));
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("class", "unit-dot-label");
+                text.textContent = unitSvg[unit.unit_key] || unit.token || "•";
+                unitToken.appendChild(text);
+
+                const title = document.createElementNS(svgNS, "title");
+                title.textContent = `${unit.type} (${unit.faction}) HP ${unit.hp}/${unit.max_hp} | ATK ${unit.strength} | DEF ${unit.defense}`;
+                unitToken.appendChild(title);
+                g.appendChild(unitToken);
+            });
+        }
+
+        const tileTitle = document.createElementNS(svgNS, "title");
+        tileTitle.textContent = `Hex ${key} - ${hex.terrain}`;
+        g.appendChild(tileTitle);
+        g.addEventListener("click", () => {
+            selectedHexKey = key;
+            renderHexBoard(data);
+        });
+
+        svg.appendChild(g);
+    });
+
+    boardDiv.appendChild(svg);
 }
 
 function renderResources(resources) {
@@ -151,32 +255,29 @@ function renderFactionTokens(factionsState) {
             return;
         }
         const card = document.createElement("div");
-        card.className = `faction-token-card ${faction.is_player ? "player-faction" : ""}`;
-
+        card.className = `faction-troop-card ${faction.is_player ? "player-faction" : ""}`;
         const title = document.createElement("h4");
-        title.textContent = faction.name;
+        title.textContent = `${factionSigil[faction.name] || "🏳️"} ${faction.name}`;
         card.appendChild(title);
 
-        const counter = document.createElement("p");
-        counter.className = "faction-counter";
-        counter.textContent = `Yksiköt: ${faction.total_units}`;
-        card.appendChild(counter);
+        const spawn = document.createElement("p");
+        const spawnPos = faction.spawn_position || { x: "?", y: "?" };
+        spawn.className = "faction-counter";
+        spawn.textContent = `Aloitushex: (${spawnPos.x}, ${spawnPos.y}) | Yksiköt: ${faction.total_units}`;
+        card.appendChild(spawn);
 
-        const units = document.createElement("div");
-        units.className = "faction-units";
+        const list = document.createElement("ul");
+        list.className = "troop-list";
         Object.entries(faction.unit_counts || {}).forEach(([unitKey, count]) => {
             if (count <= 0) {
                 return;
             }
-            const unitMeta = (window.lastUnitTypes && window.lastUnitTypes[unitKey]) || {};
-            const span = document.createElement("span");
-            span.className = "unit-pill alive";
-            span.textContent = `${unitMeta.token || "•"} ${unitMeta.label || unitKey} ×${count}`;
-            span.title = `${unitMeta.label || unitKey}: ${count} kpl`;
-            units.appendChild(span);
+            const meta = (window.lastUnitTypes && window.lastUnitTypes[unitKey]) || {};
+            const li = document.createElement("li");
+            li.innerHTML = `<span><span class="troop-token">${meta.token || unitSvg[unitKey] || "•"}</span>${meta.label || unitKey}</span><strong>×${count}</strong>`;
+            list.appendChild(li);
         });
-        card.appendChild(units);
-
+        card.appendChild(list);
         container.appendChild(card);
     });
 }
@@ -189,26 +290,27 @@ function renderBattleView(battle) {
     }
     const last = battle && battle.last ? battle.last : null;
     if (!last) {
-        panel.style.display = "none";
-        result.textContent = "Taistelua ei vielä käyty.";
+        result.textContent = "Ei taistelua vielä.";
         return;
     }
-    panel.style.display = "block";
 
     document.getElementById("battle-attacker-name").textContent = last.attacker_faction;
     document.getElementById("battle-attack-rolls").textContent = `🎲 ${last.attack_die}`;
     document.getElementById("battle-attack-total").textContent = `${last.attack_total} (${last.attacker_unit})`;
-
     document.getElementById("battle-defender-name").textContent = last.defender_faction;
     document.getElementById("battle-defense-rolls").textContent = `🎲 ${last.defense_die}`;
     document.getElementById("battle-defense-total").textContent = `${last.defense_total} (${last.defender_unit})`;
     result.textContent = `Tulos: ${last.outcome} | Vahinko puolustajalle: ${last.damage_to_defender} | Vastahyökkäys: ${last.damage_to_attacker}`;
+
+    // quick battle animation cue
+    panel.classList.remove("battle-animate");
+    void panel.offsetWidth;
+    panel.classList.add("battle-animate");
 }
 
 function renderControls(actions, actionLabels, winner) {
     const controls = document.getElementById("controls");
     controls.innerHTML = "";
-
     actions.forEach((action) => {
         const button = document.createElement("button");
         button.textContent = actionLabels[action] || action;
@@ -253,10 +355,10 @@ function setupBoardZoom() {
         return;
     }
 
-    boardZoom = Number(range.value || 30);
+    boardZoom = Number(range.value || 34);
     value.textContent = `${boardZoom}px`;
     range.addEventListener("input", () => {
-        boardZoom = Number(range.value || 30);
+        boardZoom = Number(range.value || 34);
         value.textContent = `${boardZoom}px`;
         loadState();
     });
@@ -265,7 +367,6 @@ function setupBoardZoom() {
 document.getElementById("faction-form").addEventListener("submit", function (e) {
     e.preventDefault();
     const formData = new FormData(this);
-
     fetch("/start_game", {
         method: "POST",
         body: formData,

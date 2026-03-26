@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, render_template, request
 from GameBoard import GameBoard
 from DiplomacySystem import DiplomacySystem
+import math
 import os
 import random
 import sys
@@ -63,6 +64,10 @@ UNIT_TYPES = {
     "merchant": {"label": "Kauppias", "token": "🧭", "strength": 2, "defense": 2, "hp": 5},
 }
 
+BOARD_WIDTH = 20
+BOARD_HEIGHT = 20
+TERRAIN_TYPES = ["forest", "mountain", "plains", "desert", "lake", "water"]
+
 FACTION_LOADOUTS = {
     "Mongoli-heimo": ["cavalry", "cavalry", "infantry", "chief", "merchant"],
     "Kiinan dynastia": ["infantry", "infantry", "cavalry", "chief", "merchant"],
@@ -71,15 +76,21 @@ FACTION_LOADOUTS = {
 }
 
 FACTION_SPAWN_POINTS = {
-    "Mongoli-heimo": [(1, 1), (2, 1), (1, 2), (2, 2), (3, 1)],
-    "Kiinan dynastia": [(10, 1), (9, 1), (10, 2), (9, 2), (8, 1)],
-    "Persialainen valtakunta": [(1, 10), (2, 10), (1, 9), (2, 9), (3, 10)],
-    "Venäläiset ruhtinaskunnat": [(10, 10), (9, 10), (10, 9), (9, 9), (8, 10)],
+    "Mongoli-heimo": [(2, 2), (3, 2), (2, 3), (3, 3), (4, 2)],
+    "Kiinan dynastia": [(17, 2), (16, 2), (17, 3), (16, 3), (15, 2)],
+    "Persialainen valtakunta": [(2, 17), (3, 17), (2, 16), (3, 16), (4, 17)],
+    "Venäläiset ruhtinaskunnat": [(17, 17), (16, 17), (17, 16), (16, 16), (15, 17)],
+}
+
+FACTION_SYMBOLS = {
+    "Mongoli-heimo": "🐺",
+    "Kiinan dynastia": "🐉",
+    "Persialainen valtakunta": "🦁",
+    "Venäläiset ruhtinaskunnat": "🦅",
 }
 
 RIVAL_FACTION = "Kiinan dynastia"
 
-# Globaali pelitila (yksinkertaistettu, käytä sessioita tuotannossa)
 game_state = {
     "board": None,
     "diplomacy": None,
@@ -88,27 +99,19 @@ game_state = {
     "phase_index": 0,
     "focus": "Valloitus",
     "resources": {},
-    "victory_progress": {
-        "military": 0,
-        "economic": 0,
-        "cultural": 0,
-        "technology": 0,
-    },
+    "victory_progress": {"military": 0, "economic": 0, "cultural": 0, "technology": 0},
     "winner": None,
     "event_index": 0,
     "battle": {"last": None, "history": []},
     "factions_state": {},
+    "map": {"width": BOARD_WIDTH, "height": BOARD_HEIGHT, "hexes": []},
+    "next_unit_id": 1,
+    "battle_event_id": 0,
 }
 
 
 def _starting_resources(faction_name):
-    base = {
-        "horses": 3,
-        "gold": 3,
-        "food": 3,
-        "artisans": 2,
-        "cattle": 3,
-    }
+    base = {"horses": 3, "gold": 3, "food": 3, "artisans": 2, "cattle": 3}
     if faction_name == "Mongoli-heimo":
         base["horses"] += 2
         base["cattle"] += 1
@@ -135,9 +138,59 @@ def _action_labels(actions):
     return {action: ACTION_LABELS[action] for action in actions}
 
 
+def _next_unit_id():
+    value = game_state["next_unit_id"]
+    game_state["next_unit_id"] += 1
+    return value
+
+
+def _terrain_for(col, row, width, height):
+    nx = (col / max(1, width - 1)) * 2 - 1
+    ny = (row / max(1, height - 1)) * 2 - 1
+    ridge = math.sin(col * 0.45) + math.cos(row * 0.31) + math.sin((col + row) * 0.22) * 0.7
+    dryness = math.cos(col * 0.19 - row * 0.17)
+    distance = abs(nx) + abs(ny)
+    if ridge < -1.05:
+        return "water"
+    if ridge < -0.82 or (distance > 1.42 and ridge < -0.12):
+        return "lake"
+    if ridge > 1.2:
+        return "mountain"
+    if ridge > 0.62:
+        return "forest"
+    if dryness > 0.72 and distance < 1.25:
+        return "desert"
+    return "plains"
+
+
+def _init_hex_map(width, height):
+    hexes = []
+    for row in range(height):
+        line = []
+        for col in range(width):
+            terrain = _terrain_for(col, row, width, height)
+            q = col - (row // 2)
+            r = row
+            line.append(
+                {
+                    "col": col,
+                    "row": row,
+                    "q": q,
+                    "r": r,
+                    "cube_x": q,
+                    "cube_z": r,
+                    "cube_y": -q - r,
+                    "terrain": terrain if terrain in TERRAIN_TYPES else "plains",
+                }
+            )
+        hexes.append(line)
+    return {"width": width, "height": height, "hexes": hexes}
+
+
 def _create_unit(faction_name, unit_key, side):
     base = UNIT_TYPES[unit_key]
     return {
+        "id": _next_unit_id(),
         "faction": faction_name,
         "unit_key": unit_key,
         "type": base["label"],
@@ -162,12 +215,16 @@ def _init_factions_state(player_faction_name):
         unit_counts = {unit_key: 0 for unit_key in UNIT_TYPES.keys()}
         for unit_key in loadout:
             unit_counts[unit_key] += 1
+        spawn = FACTION_SPAWN_POINTS[name][0]
         faction_state[name] = {
             "name": name,
             "color": faction.get("color", "gray"),
+            "symbol": FACTION_SYMBOLS.get(name, "🏳️"),
             "is_player": name == player_faction_name,
             "unit_counts": unit_counts,
             "total_units": len(loadout),
+            "spawn_position": {"x": spawn[0], "y": spawn[1]},
+            "units": [],
         }
     return faction_state
 
@@ -175,8 +232,8 @@ def _init_factions_state(player_faction_name):
 def _serialize_factions_state():
     ordered = []
     for faction in factions:
-        name = faction["name"]
-        ordered.append(game_state["factions_state"].get(name))
+        state = game_state["factions_state"].get(faction["name"])
+        ordered.append(state)
     return ordered
 
 
@@ -190,6 +247,7 @@ def _serialize_board():
             if unit:
                 row.append(
                     {
+                        "id": unit["id"],
                         "faction": unit["faction"],
                         "type": unit["type"],
                         "unit_key": unit["unit_key"],
@@ -197,6 +255,8 @@ def _serialize_board():
                         "hp": unit["hp"],
                         "max_hp": unit["max_hp"],
                         "side": unit["side"],
+                        "strength": unit["strength"],
+                        "defense": unit["defense"],
                     }
                 )
             else:
@@ -206,10 +266,8 @@ def _serialize_board():
 
 
 def _recount_faction_units():
-    fresh_counts = {
-        name: {unit_key: 0 for unit_key in UNIT_TYPES.keys()}
-        for name in _all_faction_names()
-    }
+    fresh_counts = {name: {unit_key: 0 for unit_key in UNIT_TYPES.keys()} for name in _all_faction_names()}
+    faction_units = {name: [] for name in _all_faction_names()}
     board = game_state["board"]
     for y in range(board.height):
         for x in range(board.width):
@@ -217,11 +275,26 @@ def _recount_faction_units():
             if not unit:
                 continue
             fresh_counts[unit["faction"]][unit["unit_key"]] += 1
-
+            faction_units[unit["faction"]].append(
+                {
+                    "id": unit["id"],
+                    "x": x,
+                    "y": y,
+                    "unit_key": unit["unit_key"],
+                    "type": unit["type"],
+                    "token": unit["token"],
+                    "hp": unit["hp"],
+                    "max_hp": unit["max_hp"],
+                    "strength": unit["strength"],
+                    "defense": unit["defense"],
+                    "side": unit["side"],
+                }
+            )
     for faction_name, state in game_state["factions_state"].items():
         counts = fresh_counts[faction_name]
         state["unit_counts"] = counts
         state["total_units"] = sum(counts.values())
+        state["units"] = faction_units[faction_name]
 
 
 def _list_units(faction_name=None, exclude_faction=None):
@@ -265,25 +338,19 @@ def _nearest_enemy(attacker_x, attacker_y, player_name):
     enemies = _list_units(exclude_faction=player_name)
     if not enemies:
         return None
-    return min(
-        enemies,
-        key=lambda entry: abs(entry[0] - attacker_x) + abs(entry[1] - attacker_y),
-    )
+    return min(enemies, key=lambda entry: abs(entry[0] - attacker_x) + abs(entry[1] - attacker_y))
 
 
 def _record_battle(report):
     game_state["battle"]["last"] = report
     game_state["battle"]["history"].insert(0, report)
-    game_state["battle"]["history"] = game_state["battle"]["history"][:6]
+    game_state["battle"]["history"] = game_state["battle"]["history"][:8]
 
 
 def _serialize_battle():
     battle = game_state.get("battle") or {"last": None, "history": []}
     last = battle.get("last")
-    payload = {
-        "history": battle.get("history", []),
-        "last": last,
-    }
+    payload = {"history": battle.get("history", []), "last": last}
     if last:
         payload.update(
             {
@@ -294,6 +361,8 @@ def _serialize_battle():
                 "damage_to_defender": last["damage_to_defender"],
                 "damage_to_attacker": last["damage_to_attacker"],
                 "outcome": last["outcome"],
+                "battle_positions": last.get("battle_positions"),
+                "event_id": last.get("event_id"),
             }
         )
     return payload
@@ -311,15 +380,13 @@ def _resolve_attack(player_name):
     player_units = _list_units(faction_name=player_name)
     if not player_units:
         return "Hyökkäys epäonnistui: pelaajan pelinappulat puuttuvat."
-
     attacker_x, attacker_y, attacker = max(player_units, key=lambda item: item[2]["strength"])
     defender_entry = _nearest_enemy(attacker_x, attacker_y, player_name)
     if not defender_entry:
         return "Vastustajan pelinappuloita ei löytynyt."
-
     defender_x, defender_y, defender = defender_entry
     attack_die, defense_die, attack_total, defense_total = _battle_roll(attacker, defender)
-
+    game_state["battle_event_id"] += 1
     result = {
         "attacker_faction": attacker["faction"],
         "defender_faction": defender["faction"],
@@ -332,8 +399,9 @@ def _resolve_attack(player_name):
         "damage_to_defender": 0,
         "damage_to_attacker": 0,
         "outcome": "torjunta",
+        "event_id": game_state["battle_event_id"],
+        "battle_positions": {"attacker": {"x": attacker_x, "y": attacker_y}, "defender": {"x": defender_x, "y": defender_y}},
     }
-
     board = game_state["board"]
     if attack_total > defense_total:
         damage = max(1, attack_die + attacker["strength"] // 3 - defender["defense"] // 4)
@@ -355,18 +423,71 @@ def _resolve_attack(player_name):
                 result["outcome"] = "hyökkääjä kaatui"
         else:
             result["outcome"] = "torjunta ilman vahinkoa"
-
     _recount_faction_units()
     _record_battle(result)
-    return (
-        f"Taistelu: hyökkäysnoppa {attack_die}, puolustusnoppa {defense_die}. "
-        f"Tulos: {result['outcome']}."
-    )
+    return f"Taistelu: hyökkäysnoppa {attack_die}, puolustusnoppa {defense_die}. Tulos: {result['outcome']}."
+
+
+def _serialize_hexes():
+    board = game_state["board"]
+    if not board:
+        return []
+    hexes = []
+    for row in range(game_state["map"]["height"]):
+        line = []
+        for col in range(game_state["map"]["width"]):
+            base_hex = game_state["map"]["hexes"][row][col]
+            unit = board.board[row][col] if row < board.height and col < board.width else None
+            faction_marker = None
+            for faction_name, points in FACTION_SPAWN_POINTS.items():
+                if points[0] == (col, row):
+                    faction_marker = {"name": faction_name, "short": faction_name.split(" ")[0][0], "symbol": FACTION_SYMBOLS.get(faction_name, "🏳️")}
+                    break
+            units = []
+            if unit:
+                units.append(
+                    {
+                        "id": unit["id"],
+                        "faction": unit["faction"],
+                        "unit_key": unit["unit_key"],
+                        "type": unit["type"],
+                        "token": unit["token"],
+                        "hp": unit["hp"],
+                        "max_hp": unit["max_hp"],
+                        "strength": unit["strength"],
+                        "defense": unit["defense"],
+                        "side": unit["side"],
+                    }
+                )
+            highlight = None
+            last = game_state["battle"].get("last")
+            if last:
+                apos = last["battle_positions"]["attacker"]
+                dpos = last["battle_positions"]["defender"]
+                if apos["x"] == col and apos["y"] == row:
+                    highlight = "attacker"
+                elif dpos["x"] == col and dpos["y"] == row:
+                    highlight = "defender"
+            line.append(
+                {
+                    "col": col,
+                    "row": row,
+                    "q": base_hex["q"],
+                    "r": base_hex["r"],
+                    "terrain": base_hex["terrain"],
+                    "faction_marker": faction_marker,
+                    "units": units,
+                    "highlight": highlight,
+                }
+            )
+        hexes.append(line)
+    return hexes
 
 
 def _game_snapshot(message=""):
     actions = PHASE_ACTIONS[_current_phase()] + ["end_phase"]
     factions_state = _serialize_factions_state()
+    battle_payload = _serialize_battle()
     return {
         "status": "ok",
         "message": message,
@@ -378,13 +499,17 @@ def _game_snapshot(message=""):
         "victory_goals": VICTORY_GOALS,
         "winner": game_state["winner"],
         "board": _serialize_board(),
+        "hexes": _serialize_hexes(),
+        "map_size": {"width": game_state["map"]["width"], "height": game_state["map"]["height"]},
+        "terrain_types": TERRAIN_TYPES,
         "available_actions": actions,
         "action_labels": _action_labels(actions),
         "faction": game_state["player_faction"]["name"],
         "factions_state": factions_state,
         "factions": factions_state,
         "unit_types": UNIT_TYPES,
-        "battle": _serialize_battle(),
+        "battle": battle_payload,
+        "battle_positions": battle_payload.get("battle_positions"),
     }
 
 
@@ -407,29 +532,22 @@ def _apply_action(action):
     phase = _current_phase()
     player_name = game_state["player_faction"]["name"]
     board = game_state["board"]
-
     if action == "end_phase":
         return _advance_phase()
-
     if action not in PHASE_ACTIONS[phase]:
         return "Toiminto ei ole sallittu tässä vaiheessa."
-
     if action == "draw_strategy":
         game_state["victory_progress"]["technology"] += 1
         return "Strategiakortti vedetty (+1 teknologiapiste)."
-
     if action == "set_focus_conquest":
         game_state["focus"] = "Valloitus"
         return "Vuoron painopiste asetettu: Valloitus."
-
     if action == "set_focus_trade":
         game_state["focus"] = "Kauppa"
         return "Vuoron painopiste asetettu: Kauppa."
-
     if action == "set_focus_diplomacy":
         game_state["focus"] = "Diplomatia"
         return "Vuoron painopiste asetettu: Diplomatia."
-
     if action == "move":
         source = _find_unit_coordinates(player_name)
         if not source:
@@ -439,12 +557,11 @@ def _apply_action(action):
         if board.board[ty][tx] is None:
             board.board[ty][tx] = board.board[sy][sx]
             board.board[sy][sx] = None
+            _recount_faction_units()
             return "Yksikkö liikkui yhden alueen eteenpäin."
         return "Kohderuutu on varattu, liike epäonnistui."
-
     if action == "attack":
         return _resolve_attack(player_name)
-
     if action == "build":
         if game_state["resources"]["artisans"] < 1 or game_state["resources"]["gold"] < 1:
             return "Rakentaminen epäonnistui: resurssit eivät riitä."
@@ -452,7 +569,6 @@ def _apply_action(action):
         game_state["resources"]["gold"] -= 1
         game_state["victory_progress"]["cultural"] += 2
         return "Linnoitus ja kulttuurirakennus pystytetty (+2 kulttuuripistettä)."
-
     if action == "trade":
         if game_state["resources"]["cattle"] > 0:
             game_state["resources"]["cattle"] -= 1
@@ -461,20 +577,17 @@ def _apply_action(action):
             game_state["resources"]["gold"] += 1
         game_state["victory_progress"]["economic"] += 2
         return "Kauppa toteutettu (+2 talouspistettä)."
-
     if action == "diplomacy":
         relation = game_state["diplomacy"].get_relation(player_name, RIVAL_FACTION)
         game_state["diplomacy"].set_relation(player_name, RIVAL_FACTION, relation + 10)
         game_state["victory_progress"]["cultural"] += 1
         return f"Diplomatia vahvistui. Suhde {RIVAL_FACTION}-faktioon on nyt {relation + 10}."
-
     if action == "collect_resources":
         game_state["resources"]["horses"] += 1
         game_state["resources"]["food"] += 1
         game_state["resources"]["cattle"] += 1
         bonus_resource = "gold"
         if game_state["focus"] == "Kauppa":
-            bonus_resource = "gold"
             game_state["victory_progress"]["economic"] += 1
         elif game_state["focus"] == "Diplomatia":
             bonus_resource = "artisans"
@@ -484,20 +597,17 @@ def _apply_action(action):
             game_state["victory_progress"]["military"] += 1
         game_state["resources"][bonus_resource] += 1
         return "Resurssit kerätty hallituilta alueilta."
-
     if action == "pay_upkeep":
         if game_state["resources"]["food"] <= 0:
             game_state["victory_progress"]["military"] = max(0, game_state["victory_progress"]["military"] - 1)
             return "Ylläpito epäonnistui: ruoka loppui, armeijan moraali laski."
         game_state["resources"]["food"] -= 1
         return "Armeijan ylläpito maksettu."
-
     if action == "research":
         game_state["victory_progress"]["technology"] += 2
         if game_state["resources"]["artisans"] > 0:
             game_state["resources"]["artisans"] -= 1
         return "Teknologia kehittyi (+2 teknologiapistettä)."
-
     if action == "resolve_event":
         event_message = EVENT_SEQUENCE[game_state["event_index"] % len(EVENT_SEQUENCE)]
         game_state["event_index"] += 1
@@ -511,7 +621,6 @@ def _apply_action(action):
         elif "sotilaspiste" in event_message:
             game_state["victory_progress"]["military"] += 1
         return f"Tapahtuma: {event_message}"
-
     return "Tuntematon toiminto."
 
 
@@ -524,35 +633,27 @@ def index():
 def start_game():
     faction_choice = int(request.form["faction"])
     player_faction = factions[faction_choice]
-
-    board = GameBoard(12, 12)
+    board = GameBoard(BOARD_WIDTH, BOARD_HEIGHT)
     diplomacy = DiplomacySystem()
-
     game_state["board"] = board
     game_state["diplomacy"] = diplomacy
     game_state["player_faction"] = player_faction
     game_state["turn"] = 1
     game_state["phase_index"] = 0
     game_state["focus"] = "Valloitus"
-    game_state["victory_progress"] = {
-        "military": 0,
-        "economic": 0,
-        "cultural": 0,
-        "technology": 0,
-    }
+    game_state["victory_progress"] = {"military": 0, "economic": 0, "cultural": 0, "technology": 0}
     game_state["winner"] = None
     game_state["event_index"] = 0
     game_state["resources"] = _starting_resources(player_faction["name"])
     game_state["battle"] = {"last": None, "history": []}
     game_state["factions_state"] = _init_factions_state(player_faction["name"])
-
+    game_state["map"] = _init_hex_map(BOARD_WIDTH, BOARD_HEIGHT)
+    game_state["next_unit_id"] = 1
+    game_state["battle_event_id"] = 0
     _place_initial_units(player_faction["name"])
     _recount_faction_units()
     _set_winner_if_reached()
-
-    snapshot = _game_snapshot(
-        "Peli aloitettu: heimot, pelinappulat ja taistelunäkymä ovat käytössä."
-    )
+    snapshot = _game_snapshot("Peli aloitettu: Civilization-tyylinen heksalauta ja heimot valmiina.")
     snapshot["status"] = "started"
     return jsonify(snapshot)
 
@@ -575,12 +676,10 @@ def get_board():
 def take_action():
     if not game_state["board"]:
         return jsonify({"error": "Game not started"}), 400
-
     payload = request.get_json(silent=True) or {}
     action = payload.get("action", "").strip()
     if not action:
         return jsonify({"error": "Action is required"}), 400
-
     message = _apply_action(action)
     _set_winner_if_reached()
     return jsonify(_game_snapshot(message))

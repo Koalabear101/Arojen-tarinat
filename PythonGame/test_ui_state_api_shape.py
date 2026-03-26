@@ -21,6 +21,27 @@ class TestUIStateApiShape(unittest.TestCase):
         self.assertIn("victory_progress", payload)
         self.assertIn("available_actions", payload)
         self.assertIn("action_labels", payload)
+        self.assertIn("hexes", payload)
+        self.assertEqual(len(payload["hexes"]), 20)
+        self.assertTrue(all(len(row) == 20 for row in payload["hexes"]))
+        self.assertIn("map_size", payload)
+        self.assertEqual(payload["map_size"]["width"], 20)
+        self.assertEqual(payload["map_size"]["height"], 20)
+        self.assertIn("terrain_types", payload)
+        self.assertIn("forest", payload["terrain_types"])
+        self.assertIn("battle_positions", payload)
+
+    def test_faction_spawn_positions_exposed(self):
+        response = self.client.get("/get_state")
+        payload = response.get_json()
+        factions = payload["factions_state"]
+        self.assertTrue(len(factions) >= 4)
+        for faction in factions:
+            self.assertIn("spawn_position", faction)
+            spawn = faction["spawn_position"]
+            self.assertIn("x", spawn)
+            self.assertIn("y", spawn)
+            self.assertIn("units", faction)
         self.assertIn("factions_state", payload)
         self.assertTrue(isinstance(payload["factions_state"], list))
         self.assertTrue(len(payload["factions_state"]) >= 4)

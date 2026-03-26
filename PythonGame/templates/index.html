@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mongolien Valtakunta - Digiversio</title>
+    <title>Mongolien Valtakunta - Civ Hex</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header class="app-header">
         <p class="app-kicker">Arojen tarina</p>
         <h1>Mongolien Valtakunta</h1>
-        <p class="app-subtitle">Moderni heksalautanäkymä luonnon teemoilla</p>
+        <p class="app-subtitle">Civilization-henkinen heksalauta biomeilla</p>
     </header>
 
     <div id="setup" class="container">
         <h2>Valitse heimosi</h2>
-        <p class="help-text">
-            Tämä versio noudattaa lautapelin 4-vaiheista vuororakennetta ja neljää voittotietä.
-        </p>
+        <p class="help-text">Valinta asettaa heimon aloitusheksiin kartalla.</p>
         <form id="faction-form">
             {% for i, faction in enumerate(factions) %}
             <label>
@@ -51,30 +49,30 @@
         </div>
 
         <div class="status-card">
-            <h3>Heimot ja pelinappulat</h3>
-            <div id="faction-pieces" class="faction-pieces"></div>
-        </div>
-
-        <div class="status-card">
+            <h3>Civilization-tyylinen heksakartta</h3>
             <div class="board-header">
-                <h3>Heksalauta</h3>
                 <div class="board-zoom">
-                    <label for="board-zoom-range">Näkymän mittakaava</label>
-                    <input id="board-zoom-range" type="range" min="24" max="42" step="1" value="30">
-                    <span id="board-zoom-value">30px</span>
+                    <label for="board-zoom-range">Hex-koko</label>
+                    <input id="board-zoom-range" type="range" min="22" max="38" step="1" value="28">
+                    <span id="board-zoom-value">28px</span>
                 </div>
             </div>
             <div id="board-wrapper">
-                <div id="board" aria-label="heksalauta"></div>
+                <svg id="board-svg" aria-label="civilization-hex-map"></svg>
             </div>
-            <div class="terrain-legend" aria-label="maastotyypit">
-                <span><i class="legend-swatch biome-steppe"></i>Preeria</span>
+            <div class="terrain-legend" aria-label="biome-legend">
                 <span><i class="legend-swatch biome-forest"></i>Metsä</span>
-                <span><i class="legend-swatch biome-hills"></i>Kukkulat</span>
-                <span><i class="legend-swatch biome-mountain"></i>Vuori</span>
-                <span><i class="legend-swatch biome-river"></i>Joki</span>
-                <span><i class="legend-swatch biome-lake"></i>Järvi</span>
+                <span><i class="legend-swatch biome-mountain"></i>Vuoristo</span>
+                <span><i class="legend-swatch biome-plains"></i>Tasanko</span>
+                <span><i class="legend-swatch biome-desert"></i>Aavikko</span>
+                <span><i class="legend-swatch biome-water"></i>Järvi/Vesi</span>
             </div>
+            <p class="help-text">Klikkaa heksiä valitaksesi ruudun (sininen korostus).</p>
+        </div>
+
+        <div class="status-card">
+            <h3>Heimot ja pelinappulat</h3>
+            <div id="faction-pieces" class="faction-pieces"></div>
         </div>
 
         <div class="status-card">
@@ -85,15 +83,15 @@
         <div class="status-card">
             <h3>Taistelunäkymä</h3>
             <div id="battle-view" class="battle-view">
-                <p class="battle-help">Hyökkäystoiminto heittää automaattisesti hyökkäys- ja puolustusnopat.</p>
+                <p class="battle-help">Hyökkäys näyttää hyökkäys-/puolustusnopat ja korostaa taisteluheksit kartalla.</p>
                 <div class="battle-grid">
-                    <div>
+                    <div class="battle-side">
                         <h4>Hyökkääjä</h4>
                         <p id="battle-attacker-name">-</p>
                         <p>Nopat: <span id="battle-attack-rolls">-</span></p>
                         <p>Summa: <span id="battle-attack-total">-</span></p>
                     </div>
-                    <div>
+                    <div class="battle-side">
                         <h4>Puolustaja</h4>
                         <p id="battle-defender-name">-</p>
                         <p>Nopat: <span id="battle-defense-rolls">-</span></p>
@@ -107,6 +105,7 @@
         <div id="messages" class="message-log"></div>
     </div>
 
+    <div id="unit-tooltip" class="unit-tooltip hidden"></div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
