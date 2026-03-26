@@ -96,6 +96,17 @@ FACTION_ENVIRONMENT_RULES = {
     "Venäläiset ruhtinaskunnat": {"required": {"forest"}, "preferred_adjacent": {"forest", "plains", "river"}},
 }
 
+ASIA_SPAWN_PRESETS = {
+    # Historiallisesti: Mongolian ylängöt / steppi
+    "Mongoli-heimo": (16, 6),
+    # Pohjois-Kiina / Keltainen joki -alue
+    "Kiinan dynastia": (18, 9),
+    # Iranin ylänkö / Persian ydinalue
+    "Persialainen valtakunta": (9, 8),
+    # Itä-Euroopan metsä- ja jokialueet
+    "Venäläiset ruhtinaskunnat": (4, 4),
+}
+
 RIVAL_FACTION = "Kiinan dynastia"
 
 game_state = {
@@ -204,19 +215,39 @@ def _paint_ellipse(field, cx, cy, rx, ry, delta):
 def _generate_continents(width, height):
     height_map = [[_base_height(col, row, width, height) for col in range(width)] for row in range(height)]
 
-    # Kaksi päämannerta + niemimaa
-    _paint_ellipse(height_map, width * 0.33, height * 0.48, width * 0.27, height * 0.36, 1.25)
-    _paint_ellipse(height_map, width * 0.70, height * 0.44, width * 0.22, height * 0.30, 1.10)
-    _paint_ellipse(height_map, width * 0.56, height * 0.67, width * 0.17, height * 0.16, 0.95)
+    # Eurasian "old world" mass: Europe -> Middle East -> Central/East Asia
+    old_world_masses = [
+        (0.14, 0.18, 0.17, 0.14, 1.05),  # Europe
+        (0.24, 0.30, 0.19, 0.17, 1.05),  # Balkans/Black Sea zone
+        (0.37, 0.33, 0.22, 0.20, 1.18),  # Anatolia/Caucasus
+        (0.50, 0.36, 0.24, 0.23, 1.20),  # Iran/Central Asia west
+        (0.66, 0.36, 0.26, 0.23, 1.22),  # Central Asia
+        (0.83, 0.36, 0.21, 0.20, 1.15),  # North China / Mongolia east
+        (0.90, 0.46, 0.15, 0.16, 0.98),  # Korea / coastal east Asia
+        (0.72, 0.52, 0.16, 0.16, 0.88),  # South China continuation
+    ]
+    for cx, cy, rx, ry, delta in old_world_masses:
+        _paint_ellipse(height_map, width * cx, height * cy, width * rx, height * ry, delta)
 
-    # Niemimaa itään
+    # India peninsula + SE Asia
+    _paint_ellipse(height_map, width * 0.76, height * 0.63, width * 0.10, height * 0.14, 0.93)
+    _paint_ellipse(height_map, width * 0.89, height * 0.67, width * 0.10, height * 0.12, 0.80)
+
+    # North Africa rim visible in south-west
+    _paint_ellipse(height_map, width * 0.22, height * 0.60, width * 0.24, height * 0.13, 0.92)
+
+    # Sea basins: Mediterranean, Arabian Sea, Bay of Bengal, Pacific edge
+    _paint_ellipse(height_map, width * 0.28, height * 0.44, width * 0.11, height * 0.08, -0.78)  # Mediterranean
+    _paint_ellipse(height_map, width * 0.59, height * 0.56, width * 0.10, height * 0.11, -0.68)  # Arabian Sea
+    _paint_ellipse(height_map, width * 0.81, height * 0.58, width * 0.08, height * 0.10, -0.65)  # Bay of Bengal
+    _paint_ellipse(height_map, width * 0.95, height * 0.46, width * 0.10, height * 0.22, -0.92)  # Pacific side
+
+    # Carve west/south oceans
     for row in range(height):
         for col in range(width):
-            peninsula = math.exp(-(((col - width * 0.88) ** 2) / (width * 1.8) + ((row - height * 0.53) ** 2) / (height * 1.3)))
-            height_map[row][col] += peninsula * 0.95
-
-    # Merialue syvennys keskelle
-    _paint_ellipse(height_map, width * 0.52, height * 0.50, width * 0.12, height * 0.20, -0.9)
+            west_ocean = max(0.0, (0.14 - (col / max(1, width - 1))))
+            south_ocean = max(0.0, ((row / max(1, height - 1)) - 0.82))
+            height_map[row][col] -= west_ocean * 1.3 + south_ocean * 1.0
     return height_map
 
 
@@ -247,19 +278,28 @@ def _add_mountain_chain(height_map, points, strength=0.52):
 
 
 def _add_mountain_ranges(height_map, width, height):
-    chain_main = [
-        (width * 0.20, height * 0.30),
-        (width * 0.31, height * 0.38),
-        (width * 0.44, height * 0.46),
-        (width * 0.58, height * 0.58),
+    # Real-world inspired mountain systems
+    caucasus_himalaya = [
+        (width * 0.35, height * 0.30),
+        (width * 0.45, height * 0.32),
+        (width * 0.57, height * 0.34),
+        (width * 0.69, height * 0.36),
+        (width * 0.82, height * 0.40),
     ]
-    chain_east = [
-        (width * 0.66, height * 0.28),
-        (width * 0.74, height * 0.35),
-        (width * 0.82, height * 0.45),
+    ural = [
+        (width * 0.33, height * 0.10),
+        (width * 0.35, height * 0.20),
+        (width * 0.37, height * 0.30),
+        (width * 0.39, height * 0.42),
     ]
-    _add_mountain_chain(height_map, chain_main, strength=0.57)
-    _add_mountain_chain(height_map, chain_east, strength=0.49)
+    tian_shan_altai = [
+        (width * 0.58, height * 0.24),
+        (width * 0.67, height * 0.24),
+        (width * 0.76, height * 0.26),
+    ]
+    _add_mountain_chain(height_map, caucasus_himalaya, strength=0.64)
+    _add_mountain_chain(height_map, ural, strength=0.46)
+    _add_mountain_chain(height_map, tian_shan_altai, strength=0.50)
 
 
 def _trace_river(height_map, start_col, start_row, terrain):
@@ -528,13 +568,29 @@ def _generate_spawn_points():
                 candidates.append((score, col, row))
         candidates.sort(reverse=True)
 
+        # Prefer historical preset region if compatible.
+        preset = ASIA_SPAWN_PRESETS.get(faction_name)
+        if preset and _within(preset[0], preset[1], BOARD_WIDTH, BOARD_HEIGHT):
+            pcol, prow = preset
+            if _terrain_walkable(pcol, prow):
+                preset_score = _score_spawn(pcol, prow, required, preferred_adjacent)
+                if preset_score >= 1.0:
+                    center = (pcol, prow)
+                else:
+                    center = None
+            else:
+                center = None
+        else:
+            center = None
+
         if not candidates:
             fallback = (BOARD_WIDTH // 2, BOARD_HEIGHT // 2)
             spawn_points[faction_name] = [fallback]
             used.add(fallback)
             continue
 
-        center = (candidates[0][1], candidates[0][2])
+        if center is None:
+            center = (candidates[0][1], candidates[0][2])
         points = [center]
         used.add(center)
 
