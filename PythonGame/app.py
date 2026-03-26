@@ -635,7 +635,7 @@ def _continent_clusters(terrain):
 
 
 def _elevation_band(elevation):
-    if elevation >= MOUNTAIN_LEVEL:
+    if elevation >= 0.72:
         return "high"
     if elevation >= HILL_LEVEL:
         return "mid"

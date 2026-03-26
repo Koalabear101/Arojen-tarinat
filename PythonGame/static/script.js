@@ -105,11 +105,14 @@ function normalizeElevationBand(band) {
     if (band === "coast") {
         return "coast";
     }
-    if (band === "highland" || band === "mountains") {
+    if (band === "high" || band === "highland" || band === "mountains") {
         return "mountains";
     }
-    if (band === "upland" || band === "hills") {
+    if (band === "mid" || band === "upland" || band === "hills") {
         return "hills";
+    }
+    if (band === "low") {
+        return "plains";
     }
     return "plains";
 }
@@ -410,13 +413,17 @@ function renderHexBoard(data) {
     const hexLookup = buildHexLookup(positioned);
     const continentIds = buildContinentIds(positioned, data.continents || [], hexLookup);
     const riverNetwork = buildRiverNetwork(data.rivers || []);
+    let selectedOverlay = null;
 
     positioned.forEach((hex) => {
         const cx = hex.px - minX + margin;
         const cy = hex.py - minY + margin;
         const key = `${hex.q},${hex.r}`;
         const coord = coordKey(hex.col, hex.row);
-        const elevationBand = normalizeElevationBand(hex.elevation_band);
+        let elevationBand = normalizeElevationBand(hex.elevation_band);
+        if (hex.shoreline && elevationBand === "ocean") {
+            elevationBand = "coast";
+        }
 
         const tileGroup = document.createElementNS(SVG_NS, "g");
         tileGroup.setAttribute("class", "hex-tile");
@@ -491,10 +498,7 @@ function renderHexBoard(data) {
         }
 
         if (selectedHexKey === key) {
-            const selectionRing = document.createElementNS(SVG_NS, "polygon");
-            selectionRing.setAttribute("points", hexPoints(cx, cy, size * 1.01));
-            selectionRing.setAttribute("class", "hex-selection-ring");
-            tileGroup.appendChild(selectionRing);
+            selectedOverlay = hexPoints(cx, cy, size * 1.045);
         }
 
         if (hex.faction_marker) {
@@ -558,6 +562,13 @@ function renderHexBoard(data) {
         });
         svg.appendChild(tileGroup);
     });
+
+    if (selectedOverlay) {
+        const selectionRing = document.createElementNS(SVG_NS, "polygon");
+        selectionRing.setAttribute("points", selectedOverlay);
+        selectionRing.setAttribute("class", "hex-selection-ring");
+        svg.appendChild(selectionRing);
+    }
 
     const battle = data.battle || {};
     const last = battle.last;
