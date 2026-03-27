@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arojen-tarinat — Mongolien Valtakunta</title>
+    <title>Mongolien Valtakunta — Digiversio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -14,8 +14,8 @@
 <div id="setup-screen" class="screen">
     <div class="setup-container">
         <div class="logo">
-            <h1>Arojen-tarinat</h1>
-            <p class="subtitle">Mongolien Valtakunta — Digiversio</p>
+            <h1>Mongolien Valtakunta</h1>
+            <p class="subtitle">Arojen-tarinat — Digiversio</p>
         </div>
 
         <div class="faction-select">
@@ -26,15 +26,15 @@
                     <span class="faction-icon" style="background:{{ faction.color }}">{{ faction.name[0] }}</span>
                     <span class="faction-name">{{ faction.name }}</span>
                     <span class="faction-bonus">{{ faction.bonus }}</span>
-                    <span class="faction-passive"><strong>{{ faction.passive_name }}</strong></span>
+                    <span class="faction-passive">{{ faction.passive_name }}</span>
                     <span class="faction-playstyle">{{ faction.playstyle }}</span>
                 </button>
                 {% endfor %}
             </div>
-            <button id="start-btn" class="btn btn-primary" disabled>Aloita peli</button>
+            <button id="start-btn" class="btn btn-primary" disabled>Aloita valtakunta</button>
         </div>
 
-        <button id="help-btn" class="btn btn-ghost">Ohje</button>
+        <button id="help-btn" class="btn btn-ghost">Pelin ohje</button>
     </div>
 </div>
 
@@ -42,11 +42,10 @@
 <div id="game-screen" class="screen" style="display:none;">
     <header class="game-header">
         <div class="header-left">
-            <h1 class="game-title">Arojen-tarinat</h1>
+            <h1 class="game-title">Mongolien Valtakunta</h1>
             <span class="faction-badge" id="player-badge"></span>
         </div>
         <div class="header-center">
-            <!-- Phase progress bar -->
             <div class="phase-bar">
                 <div class="phase-step" id="phase-step-movement">
                     <span class="phase-step-icon">🚶</span>
@@ -90,10 +89,7 @@
         </div>
     </header>
 
-    <!-- Phase transition banner -->
     <div id="phase-banner" class="phase-banner"></div>
-
-    <!-- Status message bar -->
     <div id="status-bar" class="status-bar"></div>
 
     <main class="game-main">
@@ -114,6 +110,11 @@
                 <div id="unit-details"></div>
             </div>
 
+            <div class="victory-progress-panel">
+                <h3>Voittopolut</h3>
+                <div id="victory-progress"></div>
+            </div>
+
             <div class="event-log">
                 <h3>Tapahtumat</h3>
                 <div id="event-log"></div>
@@ -128,7 +129,7 @@
         <div class="victory-icon" id="victory-icon">🏆</div>
         <h2 id="victory-title"></h2>
         <p id="victory-message"></p>
-        <button id="new-game-btn" class="btn btn-primary">Uusi peli</button>
+        <button id="new-game-btn" class="btn btn-primary">Uusi valtakunta</button>
     </div>
 </div>
 
@@ -140,32 +141,32 @@
         <div class="help-sections">
             <section>
                 <h3>🎯 Tavoite</h3>
-                <p>Tuhoa vihollisen kaikki yksiköt, saavuta diplomaattinen liittolaisuus tai omista eniten yksiköitä vuororajan lopussa.</p>
+                <p>Valloita arot ja luo valtakuntasi. Voita tuhoamalla viholliset, solmimalla liitto tai hallitsemalla eniten joukkoja vuororajan lopussa.</p>
             </section>
             <section>
                 <h3>🔄 Vuoron vaiheet</h3>
                 <ol>
-                    <li><strong>Liike</strong> — Siirrä yksiköitäsi. Klikkaa omaa yksikköä nähdäksesi siirtovaihtoehdot (sininen) ja sitten kohderuutua.</li>
-                    <li><strong>Taistelu</strong> — Hyökkää vihollisia vastaan. Klikkaa yksikköäsi ja sitten vihollista (punainen korostus).</li>
-                    <li><strong>Diplomatia</strong> — Paranna suhteita vihollisheimoon. 50 pistettä = diplomaattinen voitto.</li>
-                    <li><strong>Resurssit</strong> — Kerää resursseja, paranna yksiköitä tai värvää uusia.</li>
+                    <li><strong>Liike</strong> — Siirrä yksiköitäsi. Klikkaa omaa yksikköä ja sitten kohderuutua.</li>
+                    <li><strong>Taistelu</strong> — Hyökkää vihollisia vastaan kantaman päässä.</li>
+                    <li><strong>Diplomatia</strong> — Paranna suhteita. 50 pistettä = diplomaattinen voitto.</li>
+                    <li><strong>Resurssit</strong> — Kerää resursseja, paranna tai värvää yksiköitä.</li>
                 </ol>
             </section>
             <section>
                 <h3>⚔️ Yksiköt</h3>
                 <ul>
-                    <li><strong>⚔️ Soturi</strong> — Tasapainoinen lähitaistelija. Voima 8, Puolustus 6.</li>
-                    <li><strong>🐎 Ratsuväki</strong> — Nopea, vahva hyökkäys, nopeus 3. Voima 10, Puolustus 4.</li>
-                    <li><strong>🏹 Jousiampuja</strong> — Hyökkää kaukaa (kantama 3), heikko puolustus. Voima 6, Puolustus 3.</li>
-                    <li><strong>👑 Päällikkö</strong> — Vahvin yksikkö. Voima 12, Puolustus 8. Suojele häntä!</li>
+                    <li><strong>⚔️ Soturi</strong> — Tasapainoinen. Voima 8, Puolustus 6.</li>
+                    <li><strong>🐎 Ratsuväki</strong> — Nopea, vahva. Voima 10, Puolustus 4, Nopeus 3.</li>
+                    <li><strong>🏹 Jousiampuja</strong> — Kaukovaikuttaja. Voima 6, Puolustus 3, Kantama 3.</li>
+                    <li><strong>👑 Päällikkö</strong> — Vahvin. Voima 12, Puolustus 8. Suojele!</li>
                 </ul>
             </section>
             <section>
                 <h3>💡 Vihjeet</h3>
                 <ul>
-                    <li>Vie hiiri yksikön päälle nähdäksesi sen tiedot.</li>
-                    <li>Klikkaa omaa yksikköä nähdäksesi sinisen (siirto) ja punaisen (hyökkäys) korostuksen.</li>
-                    <li>Vaihe vaihtuu automaattisesti "Lopeta vaihe" -napista.</li>
+                    <li>Vie hiiri yksikön päälle nähdäksesi tiedot.</li>
+                    <li>Valitun yksikön siirto- ja hyökkäyskohteet korostuvat laudalla.</li>
+                    <li>"Lopeta vaihe" siirtää seuraavaan vuorovaiheeseen.</li>
                 </ul>
             </section>
         </div>

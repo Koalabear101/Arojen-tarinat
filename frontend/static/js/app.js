@@ -178,6 +178,7 @@
         UI.updatePhaseBar(state.phase);
         UI.renderActions(state.allowed_actions, handleAction);
         UI.renderFactionAbility(state.player_faction);
+        UI.renderVictoryProgress(state);
 
         // Phase transition banner
         if (lastPhase !== null && lastPhase !== state.phase) {

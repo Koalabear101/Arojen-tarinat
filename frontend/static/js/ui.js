@@ -104,6 +104,39 @@ const UI = {
         `;
     },
 
+    renderVictoryProgress(state) {
+        const el = document.getElementById("victory-progress");
+        if (!el || !state.player_faction || !state.enemy_faction) return;
+
+        const pid = state.player_faction.id;
+        const eid = state.enemy_faction.id;
+        const playerUnits = state.board.flat().filter(c => c && c.faction_id === pid).length;
+        const enemyUnits = state.board.flat().filter(c => c && c.faction_id === eid).length;
+        const relKey = `${pid}:${eid}`;
+        const diplomacy = state.diplomacy[relKey] || 0;
+        const dipPct = Math.min(100, Math.max(0, (diplomacy / 50) * 100));
+        const milPct = enemyUnits === 0 ? 100 : Math.round((1 - enemyUnits / 6) * 100);
+        const turnPct = Math.round((state.turn / state.max_turns) * 100);
+
+        el.innerHTML = `
+            <div class="victory-row">
+                <span class="vp-label">⚔️ Sotilaallinen</span>
+                <span class="vp-value">${playerUnits} vs ${enemyUnits}</span>
+            </div>
+            <div class="vp-bar"><div class="vp-bar-fill" style="width:${Math.max(0, milPct)}%"></div></div>
+            <div class="victory-row" style="margin-top:0.4rem">
+                <span class="vp-label">🤝 Diplomatia</span>
+                <span class="vp-value">${diplomacy} / 50</span>
+            </div>
+            <div class="vp-bar"><div class="vp-bar-fill" style="width:${dipPct}%"></div></div>
+            <div class="victory-row" style="margin-top:0.4rem">
+                <span class="vp-label">⏳ Vuorot</span>
+                <span class="vp-value">${state.turn} / ${state.max_turns}</span>
+            </div>
+            <div class="vp-bar"><div class="vp-bar-fill" style="width:${turnPct}%"></div></div>
+        `;
+    },
+
     addEvent(event) {
         const log = document.getElementById("event-log");
         const entry = document.createElement("div");
