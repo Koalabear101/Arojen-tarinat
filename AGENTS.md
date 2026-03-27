@@ -4,10 +4,13 @@
 
 ### Project overview
 
-Arojen-tarinat is a multi-language strategy game with three components:
-- **JSGame/** — Node.js console game (CommonJS) with Jest tests and ESLint
-- **PythonGame/** — Python console game + Flask web app with browser UI
-- **Game/** — Shared Python module (Factions data) used by PythonGame
+Arojen-tarinat is a turn-based strategy web game with a production-grade architecture:
+
+- **`backend/`** — Flask app factory with blueprints, game engine classes, domain models, and pytest suite
+- **`frontend/`** — Jinja2 templates + modular JS (api, board, ui, constants, app) + professional CSS
+- **`JSGame/`** — Standalone Node.js console game with Jest tests (unchanged)
+- **`PythonGame/`** — Legacy Python console + web game (preserved, not used by new backend)
+- **`Game/`** — Legacy shared factions module (preserved)
 
 No databases, Docker, or external services are required. All state is in-memory.
 
@@ -15,26 +18,27 @@ No databases, Docker, or external services are required. All state is in-memory.
 
 | Service | Command | Notes |
 |---|---|---|
-| Flask web game | `cd PythonGame && python app.py` | Serves at http://127.0.0.1:5000 |
-| JS console game | `cd JSGame && node main.js` | Non-interactive; exits after one round |
-| Python console game | `cd PythonGame && python main.py` | Interactive; needs stdin input |
+| Dev server (new) | `python run.py` | Flask at http://127.0.0.1:5000 |
+| Production server | `gunicorn --bind 0.0.0.0:8000 wsgi:app` | Gunicorn |
+| JS console game | `cd JSGame && node main.js` | Standalone |
+| Legacy Flask game | `cd PythonGame && python app.py` | Legacy, port 5000 |
 
-### Lint and test commands
+### Lint, test, and build commands
 
-See `README.md` and `check-all.sh` for the full list. Summary:
+Use `make check` to run everything, or individually:
 
-| Component | Lint | Test |
-|---|---|---|
-| JSGame | `cd JSGame && npm run lint` | `cd JSGame && npm test` |
-| PythonGame | `cd PythonGame && make lint` | `cd PythonGame && make test` |
-| Game | `cd Game && make lint` | `cd Game && make test` |
-
-Run all at once: `bash check-all.sh` (from repo root).
+| What | Command |
+|---|---|
+| Backend tests | `make test` or `python -m pytest backend/tests/ -v` |
+| Backend lint | `make lint` |
+| JS tests | `make test-js` |
+| All checks | `make check` |
+| Dev server | `make run` |
 
 ### Non-obvious caveats
 
-- The ESLint config (`JSGame/eslint.config.mjs`) references plugins not listed in `package.json` (`@eslint/js`, `eslint-plugin-react`, `@eslint/json`, `@eslint/markdown`, `@eslint/css`). The update script installs them with `--legacy-peer-deps` due to a peer conflict between `eslint-plugin-react` and ESLint v10.
-- ESLint reports ~49 `no-undef` errors for `module`, `require`, `console`, `process`, `test`, `expect` globals. These are pre-existing in the repo (CommonJS + Jest globals not configured in the ESLint config). ESLint runs but exits non-zero.
-- pylint reports convention/style warnings (missing docstrings, snake_case names) and exits non-zero. This is expected — the repo code triggers these warnings.
-- The Makefiles use `python` (not `python3`). The update script ensures `/usr/bin/python` symlink exists.
-- The `Game/` module has no tests (unittest discover finds 0). This is expected.
+- The new backend uses an app factory (`backend/app.py`) with blueprints. The entry point is `run.py` (dev) or `wsgi.py` (prod).
+- Game state is per-session in memory via cookie-based session ID. No database needed.
+- The ESLint config for JSGame references plugins not in `package.json` — the update script installs them with `--legacy-peer-deps`.
+- Legacy `PythonGame/` Makefiles use `python` (not `python3`). The update script ensures the symlink exists.
+- pylint is run with several convention checks disabled (`C0114,C0115,C0116,C0103,R0903`) and `--fail-under=7` for the new backend.

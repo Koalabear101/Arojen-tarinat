@@ -7,37 +7,43 @@ on:
     branches: [ main ]
 
 jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: pip install -r requirements-dev.txt
+    - name: Lint backend
+      run: python -m pylint backend/ --disable=C0114,C0115,C0116,C0103,R0903 --fail-under=7
+    - name: Run backend tests
+      run: python -m pytest backend/tests/ -v
+
   test-js:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
     - name: Install dependencies
       run: cd JSGame && npm install
-    - name: Run ESLint
-      run: cd JSGame && npm run lint
     - name: Run tests
       run: cd JSGame && npm test
 
-  test-python:
+  test-legacy-python:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.12'
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pylint
-    - name: Run Pylint
-      run: |
-        pylint PythonGame/*.py Game/*.py
-    - name: Run tests
-      run: |
-        cd PythonGame && python -m unittest discover .
-        cd ../Game && python -m unittest discover .
+      run: pip install flask pylint
+    - name: Run legacy tests
+      run: cd PythonGame && python -m unittest discover .

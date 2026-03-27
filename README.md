@@ -1,66 +1,85 @@
-# Arojen-tarinat
+# Arojen-tarinat — Mongolien Valtakunta
 
-A multi-language game project featuring implementations in JavaScript, Python, and TypeScript (removed). The project includes various game components like combat rules, diplomacy, and factions.
-
-## Project Structure
-
-- `Game/`: Contains Python files for game logic (e.g., Factions.py).
-- `JSGame/`: JavaScript implementations of game components.
-- `PythonGame/`: Python implementations of game components.
-
-## Installation
-
-### JavaScript (JSGame)
-1. Ensure Node.js is installed.
-2. Navigate to the project root.
-3. Run `npm install` if package.json exists, or run files directly with Node.js.
-
-### Python (PythonGame and Game)
-1. Ensure Python 3.x is installed.
-2. Install dependencies if any (none currently).
-3. Run Python files directly: `python Factions.py`
-
-## Usage
-
-### Python Web Game
-- Run the web game: `cd PythonGame && python app.py`
-- Open browser at http://127.0.0.1:5000/
-- Select faction, play on the visual board.
-
-### JavaScript
-- Run the game: `cd JSGame && npm start`
-- Or directly: `node JSGame/main.js`
-- Scripts: `cd JSGame && npm run lint`, `npm run test`
-
-### Python Console Game
-- Run the console game: `cd PythonGame && python main.py`
-
-## Automation
-
-- **CI/CD**: GitHub Actions runs linting and tests on push/PR (see `.github/workflows/ci.yml`).
-- **Scripts**: Run `./check-all.sh` to lint and test all components.
-- **IDE Extensions**: Install GitLens, Python, ESLint in VS Code for better development experience.
+A turn-based strategy web game set in the steppes of Central Asia. Choose your faction, command units on a grid-based board, engage in combat, diplomacy, and resource management to achieve victory.
 
 ## Architecture
 
-The project is organized into three language-specific folders for modularity. Each component (e.g., Combat, Diplomacy) has implementations in both JS and Python for cross-language compatibility.
+```
+backend/              Flask application (app factory + blueprints)
+  ├── models/         Domain models: Unit, Board, Faction, GameState
+  ├── engine/         Game logic: Combat, Diplomacy, Resources, Turns, Victory
+  ├── routes/         API + page-serving blueprints
+  ├── tests/          Pytest test suite
+  ├── app.py          App factory
+  └── config.py       Environment configurations
+frontend/             Browser client
+  ├── templates/      Jinja2 HTML templates
+  └── static/         CSS + modular JS (api, board, ui, constants, app)
+JSGame/               Node.js console game (standalone)
+Game/                 Legacy shared factions data
+PythonGame/           Legacy Python console + web game (preserved)
+```
 
-- **Combat System**: Handles damage calculations.
-- **Game Board**: Manages grid-based unit placement.
-- **Diplomacy System**: Tracks relations between factions.
-- **Factions**: Defines game factions with bonuses and starting units.
+## Quick Start
 
-## API Documentation
+```bash
+# Install dependencies
+pip install -r requirements-dev.txt
+cd JSGame && npm install && cd ..
 
-### JavaScript (JSDoc)
-- See inline JSDoc comments in JSGame/*.js files.
+# Run development server
+python run.py
+# Open http://localhost:5000
 
-### Python (Docstrings)
-- See inline docstrings in PythonGame/*.py and Game/*.py files.
+# Run all tests
+make check
+```
+
+## Commands
+
+| Command           | Description                      |
+|-------------------|----------------------------------|
+| `make dev`        | Install dev dependencies         |
+| `make run`        | Start dev server (port 5000)     |
+| `make test`       | Run backend pytest suite         |
+| `make lint`       | Lint backend with pylint         |
+| `make test-js`    | Run JSGame Jest tests            |
+| `make check`      | Run all lints + tests            |
+| `make run-prod`   | Run with Gunicorn                |
+| `make docker-build` | Build Docker image             |
+
+## Game Overview
+
+### Factions
+- **Mongoli-heimo** — Cavalry bonus, fast movement
+- **Kiinan dynastia** — Fortifications, technology
+- **Persialainen valtakunta** — Trade skills, cultural resources
+- **Venäläiset ruhtinaskunnat** — Winter tactics, forest resources
+
+### Turn Phases
+1. **Movement** — Move your units on the board
+2. **Combat** — Attack enemy units in range
+3. **Diplomacy** — Improve relations with other factions
+4. **Resources** — Collect resources, heal or recruit units
+
+### Victory Conditions
+- **Military** — Destroy all enemy units
+- **Diplomatic** — Reach alliance threshold (50)
+- **Attrition** — Have more units when turn limit is reached
+
+## Deployment
+
+```bash
+# Docker
+docker build -t arojen-tarinat .
+docker run -p 8000:8000 arojen-tarinat
+
+# Gunicorn
+gunicorn --bind 0.0.0.0:8000 --workers 4 wsgi:app
+```
 
 ## Contributing
 
-- Follow coding standards: ESLint for JS, PEP 8 for Python.
-- Write unit tests for new features (Jest for JS, unittest for Python).
-- Update documentation as needed.
-- Run `./check-all.sh` before committing.
+- Run `make check` before committing
+- Write tests for new features
+- Follow PEP 8 for Python, ESLint for JS

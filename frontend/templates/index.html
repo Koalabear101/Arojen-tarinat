@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arojen-tarinat — Mongolien Valtakunta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- ═══════ SETUP SCREEN ═══════ -->
+<div id="setup-screen" class="screen">
+    <div class="setup-container">
+        <div class="logo">
+            <h1>Arojen-tarinat</h1>
+            <p class="subtitle">Mongolien Valtakunta — Digiversio</p>
+        </div>
+
+        <div class="faction-select">
+            <h2>Valitse heimosi</h2>
+            <div class="faction-grid" id="faction-grid">
+                {% for faction in factions %}
+                <button class="faction-card" data-index="{{ loop.index0 }}" data-color="{{ faction.color }}">
+                    <span class="faction-icon" style="background:{{ faction.color }}">{{ faction.name[0] }}</span>
+                    <span class="faction-name">{{ faction.name }}</span>
+                    <span class="faction-bonus">{{ faction.bonus }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <button id="start-btn" class="btn btn-primary" disabled>Aloita peli</button>
+        </div>
+
+        <button id="help-btn" class="btn btn-ghost">Ohje</button>
+    </div>
+</div>
+
+<!-- ═══════ GAME SCREEN ═══════ -->
+<div id="game-screen" class="screen" style="display:none;">
+    <header class="game-header">
+        <div class="header-left">
+            <h1 class="game-title">Arojen-tarinat</h1>
+            <span class="faction-badge" id="player-badge"></span>
+        </div>
+        <div class="header-center">
+            <div class="phase-indicator" id="phase-indicator">
+                <span class="phase-label" id="phase-label"></span>
+                <span class="phase-desc" id="phase-desc"></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="stat-box">
+                <span class="stat-label">Vuoro</span>
+                <span class="stat-value" id="turn-display">0</span>
+                <span class="stat-label" id="max-turn-display"></span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Resurssit</span>
+                <span class="stat-value" id="resources-display">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Diplomatia</span>
+                <span class="stat-value" id="diplomacy-display">0</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="game-main">
+        <div class="board-area">
+            <div id="board" class="board"></div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="controls-panel" id="controls-panel">
+                <h3>Toiminnot</h3>
+                <div id="action-buttons"></div>
+            </div>
+
+            <div class="unit-info-panel" id="unit-info" style="display:none;">
+                <h3>Yksikön tiedot</h3>
+                <div id="unit-details"></div>
+            </div>
+
+            <div class="event-log">
+                <h3>Tapahtumat</h3>
+                <div id="event-log"></div>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<!-- ═══════ VICTORY MODAL ═══════ -->
+<div id="victory-modal" class="modal" style="display:none;">
+    <div class="modal-content victory-content">
+        <div class="victory-icon" id="victory-icon">🏆</div>
+        <h2 id="victory-title"></h2>
+        <p id="victory-message"></p>
+        <button id="new-game-btn" class="btn btn-primary">Uusi peli</button>
+    </div>
+</div>
+
+<!-- ═══════ HELP MODAL ═══════ -->
+<div id="help-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <button class="modal-close" id="help-close">&times;</button>
+        <h2>Pelin ohje</h2>
+        <div class="help-sections">
+            <section>
+                <h3>🎯 Tavoite</h3>
+                <p>Tuhoa vihollisen kaikki yksiköt, saavuta diplomaattinen liittolaisuus tai omista eniten yksiköitä vuororajan lopussa.</p>
+            </section>
+            <section>
+                <h3>🔄 Vuoron vaiheet</h3>
+                <ol>
+                    <li><strong>Liike</strong> — Siirrä yksiköitäsi laudalla klikkaamalla omaa yksikköä ja sitten kohderuutua.</li>
+                    <li><strong>Taistelu</strong> — Hyökkää vihollistyksiköitä vastaan klikkaamalla omaa yksikköä ja sitten vihollista.</li>
+                    <li><strong>Diplomatia</strong> — Paranna suhteita vihollisheimoon.</li>
+                    <li><strong>Resurssit</strong> — Kerää resursseja, paranna yksiköitä tai värvää uusia.</li>
+                </ol>
+            </section>
+            <section>
+                <h3>⚔️ Yksiköt</h3>
+                <ul>
+                    <li><strong>Soturi</strong> — Tasapainoinen lähitaistelija</li>
+                    <li><strong>Ratsuväki</strong> — Nopea, vahva hyökkäys</li>
+                    <li><strong>Jousiampuja</strong> — Hyökkää kaukaa, heikko puolustus</li>
+                    <li><strong>Päällikkö</strong> — Vahvin yksikkö, suojele häntä!</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/constants.js') }}"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/board.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
