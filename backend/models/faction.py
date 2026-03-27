@@ -16,6 +16,10 @@ class Faction:
     bonus_strength: int = 0
     bonus_defense: int = 0
     start_units: tuple[str, ...] = ()
+    passive_name: str = ""
+    passive_description: str = ""
+    playstyle: str = ""
+    signature_unit: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -24,6 +28,10 @@ class Faction:
             "color": self.color,
             "bonus": self.bonus_description,
             "start_units": list(self.start_units),
+            "passive_name": self.passive_name,
+            "passive_description": self.passive_description,
+            "playstyle": self.playstyle,
+            "signature_unit": self.signature_unit,
         }
 
 
@@ -36,6 +44,10 @@ FACTIONS: tuple[Faction, ...] = (
         bonus_strength=2,
         bonus_defense=0,
         start_units=("cavalry", "cavalry", "cavalry", "warrior", "warrior", "chief"),
+        passive_name="Arojen herruus",
+        passive_description="Ratsuväki saa +1 nopeus ja +1 voima.",
+        playstyle="Hyökkäävä / nopea laajeneminen",
+        signature_unit="cavalry",
     ),
     Faction(
         faction_id="china",
@@ -45,6 +57,10 @@ FACTIONS: tuple[Faction, ...] = (
         bonus_strength=0,
         bonus_defense=2,
         start_units=("warrior", "warrior", "warrior", "archer", "archer", "chief"),
+        passive_name="Suuri muuri",
+        passive_description="Kaikki yksiköt saavat +2 puolustus.",
+        playstyle="Puolustava / pitkäjänteinen",
+        signature_unit="archer",
     ),
     Faction(
         faction_id="persia",
@@ -54,6 +70,10 @@ FACTIONS: tuple[Faction, ...] = (
         bonus_strength=1,
         bonus_defense=1,
         start_units=("warrior", "warrior", "cavalry", "cavalry", "archer", "chief"),
+        passive_name="Silkkitie",
+        passive_description="Resurssien keräys +50% tehokkaampi.",
+        playstyle="Taloudellinen / diplomaattinen",
+        signature_unit="warrior",
     ),
     Faction(
         faction_id="russia",
@@ -63,6 +83,10 @@ FACTIONS: tuple[Faction, ...] = (
         bonus_strength=1,
         bonus_defense=1,
         start_units=("warrior", "warrior", "warrior", "cavalry", "archer", "chief"),
+        passive_name="Talven kosketus",
+        passive_description="Viholliset saavat -1 voima taistelussa.",
+        playstyle="Tasapainoinen / kulutussota",
+        signature_unit="warrior",
     ),
 )
 

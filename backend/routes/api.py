@@ -80,3 +80,47 @@ def perform_action() -> Response:
 
     status = 200 if result.get("success", False) else 400
     return jsonify(result), status
+
+
+@api.route("/highlights", methods=["GET"])
+def get_highlights() -> Response:
+    """Return valid move and attack targets for a unit at (x, y)."""
+    engine = _get_engine()
+    if engine.state is None:
+        return jsonify({"error": "Peliä ei ole aloitettu."}), 400
+
+    try:
+        x = int(request.args.get("x", -1))
+        y = int(request.args.get("y", -1))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Virheelliset koordinaatit."}), 400
+
+    state = engine.state
+    unit = state.board.get_unit(x, y)
+    if unit is None:
+        return jsonify({"move": [], "attack": []})
+
+    move_targets: list[list[int]] = []
+    attack_targets: list[list[int]] = []
+
+    is_player = unit.faction_id == state.player_faction.faction_id
+
+    if is_player and not unit.has_acted:
+        for ty in range(state.board.height):
+            for tx in range(state.board.width):
+                dist = state.board.distance(x, y, tx, ty)
+                if dist == 0:
+                    continue
+                occupant = state.board.get_unit(tx, ty)
+                if occupant is None and dist <= unit.speed:
+                    move_targets.append([tx, ty])
+                if (occupant is not None
+                        and occupant.faction_id != unit.faction_id
+                        and dist <= unit.attack_range):
+                    attack_targets.append([tx, ty])
+
+    return jsonify({
+        "move": move_targets,
+        "attack": attack_targets,
+        "unit": unit.to_dict(),
+    })

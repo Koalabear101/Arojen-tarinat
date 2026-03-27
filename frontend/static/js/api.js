@@ -24,4 +24,9 @@ const GameAPI = {
         });
         return res.json();
     },
+
+    async getHighlights(x, y) {
+        const res = await fetch(`/api/highlights?x=${x}&y=${y}`);
+        return res.json();
+    },
 };

@@ -298,6 +298,46 @@ class TestAPIRoutes(unittest.TestCase):
         resp = self.client.post("/api/action", json={"action": "attack"})
         self.assertEqual(resp.status_code, 400)
 
+    def test_highlights_before_start(self):
+        resp = self.client.get("/api/highlights?x=0&y=0")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_highlights_empty_cell(self):
+        self.client.post("/api/start_game", json={"faction": 0})
+        resp = self.client.get("/api/highlights?x=5&y=5")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["move"], [])
+        self.assertEqual(data["attack"], [])
+
+    def test_highlights_player_unit(self):
+        self.client.post("/api/start_game", json={"faction": 0})
+        resp = self.client.get("/api/highlights?x=0&y=0")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("move", data)
+        self.assertIn("attack", data)
+        self.assertIn("unit", data)
+        self.assertIsInstance(data["move"], list)
+
+    def test_faction_data_has_passive(self):
+        resp = self.client.get("/api/factions")
+        data = resp.get_json()
+        for faction in data["factions"]:
+            self.assertIn("passive_name", faction)
+            self.assertIn("passive_description", faction)
+            self.assertIn("playstyle", faction)
+            self.assertIn("signature_unit", faction)
+            self.assertTrue(len(faction["passive_name"]) > 0)
+
+    def test_state_includes_faction_identity(self):
+        self.client.post("/api/start_game", json={"faction": 0})
+        resp = self.client.get("/api/state")
+        data = resp.get_json()
+        pf = data["player_faction"]
+        self.assertIn("passive_name", pf)
+        self.assertEqual(pf["id"], "mongol")
+
 
 if __name__ == "__main__":
     unittest.main()

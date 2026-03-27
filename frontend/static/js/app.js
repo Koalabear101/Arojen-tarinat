@@ -4,8 +4,9 @@
 (function () {
     let gameState = null;
     let selectedFaction = null;
-    let interactionMode = null; // "move_select_target", "attack_select_target", "heal_select", "recruit_select"
+    let interactionMode = null;
     let sourceCell = null;
+    let lastPhase = null;
 
     // ── Setup screen ──────────────────────────────────────
     document.querySelectorAll(".faction-card").forEach(card => {
@@ -42,88 +43,114 @@
         gameState = null;
         interactionMode = null;
         sourceCell = null;
+        lastPhase = null;
     });
 
     // ── Board click handling ──────────────────────────────
-    BoardRenderer.onCellClick = (x, y, cellData) => {
+    BoardRenderer.onCellClick = async (x, y, cellData) => {
         if (!gameState || gameState.game_over) return;
 
         const playerId = gameState.player_faction.id;
 
+        // Target selection for move
         if (interactionMode === "move_select_target" && sourceCell) {
-            performAction("move", {
+            await performAction("move", {
                 from_x: sourceCell.x, from_y: sourceCell.y,
                 to_x: x, to_y: y,
             });
-            interactionMode = null;
-            sourceCell = null;
+            clearInteraction();
             return;
         }
 
+        // Target selection for attack
         if (interactionMode === "attack_select_target" && sourceCell) {
-            performAction("attack", {
+            const result = await GameAPI.performAction("attack", {
                 attacker_x: sourceCell.x, attacker_y: sourceCell.y,
                 target_x: x, target_y: y,
             });
-            BoardRenderer.flashCell(x, y);
-            interactionMode = null;
-            sourceCell = null;
+            if (result.success) {
+                BoardRenderer.flashCell(x, y, "damage-flash");
+                BoardRenderer.showFloatingText(x, y, `-${result.damage}`, "#ff4444");
+                if (result.destroyed) {
+                    BoardRenderer.showFloatingText(x, y, "💀", "#ff0000");
+                }
+            } else {
+                UI.showStatusMessage(result.error || "Hyökkäys epäonnistui.");
+            }
+            clearInteraction();
+            await refreshState();
             return;
         }
 
+        // Heal selection
         if (interactionMode === "heal_select" && cellData && cellData.faction_id === playerId) {
-            performAction("heal", { x, y });
-            interactionMode = null;
+            await performAction("heal", { x, y });
+            clearInteraction();
             return;
         }
 
+        // Recruit selection
         if (interactionMode === "recruit_select") {
             if (!cellData) {
-                const unitType = prompt("Yksikkötyyppi (warrior/cavalry/archer):");
+                const unitType = prompt("Yksikkötyyppi (warrior / cavalry / archer):");
                 if (unitType) {
-                    performAction("recruit", { unit_type: unitType, x, y });
+                    await performAction("recruit", { unit_type: unitType.trim().toLowerCase(), x, y });
                 }
+            } else {
+                UI.showStatusMessage("Ruutu on varattu. Valitse tyhjä ruutu.");
             }
-            interactionMode = null;
+            clearInteraction();
             return;
         }
 
-        // Default: select unit, show info
-        if (cellData) {
+        // Default: select a unit and fetch its highlights
+        if (cellData && cellData.faction_id === playerId) {
             BoardRenderer.setSelected(x, y);
-            UI.showUnitInfo(cellData);
             sourceCell = { x, y };
+            UI.showUnitInfo(cellData);
+
+            const highlights = await GameAPI.getHighlights(x, y);
+            BoardRenderer.setHighlights(highlights.move, highlights.attack);
             rerender();
         } else {
-            BoardRenderer.clearSelection();
+            clearInteraction();
             UI.hideUnitInfo();
-            sourceCell = null;
             rerender();
         }
     };
+
+    function clearInteraction() {
+        interactionMode = null;
+        sourceCell = null;
+        BoardRenderer.clearSelection();
+    }
 
     // ── Action handling ───────────────────────────────────
     function handleAction(action) {
         switch (action) {
             case "move":
                 if (!sourceCell) {
-                    alert("Valitse ensin yksikkö laudalta.");
+                    UI.showStatusMessage("Valitse ensin yksikkö laudalta.");
                     return;
                 }
                 interactionMode = "move_select_target";
+                UI.showStatusMessage("Valitse kohderuutu siirrolle.");
                 break;
             case "attack":
                 if (!sourceCell) {
-                    alert("Valitse ensin hyökkäävä yksikkö laudalta.");
+                    UI.showStatusMessage("Valitse ensin hyökkäävä yksikkö.");
                     return;
                 }
                 interactionMode = "attack_select_target";
+                UI.showStatusMessage("Valitse kohde hyökkäykselle.");
                 break;
             case "heal":
                 interactionMode = "heal_select";
+                UI.showStatusMessage("Valitse parannettava yksikkö.");
                 break;
             case "recruit":
                 interactionMode = "recruit_select";
+                UI.showStatusMessage("Valitse tyhjä ruutu uudelle yksikölle.");
                 break;
             case "diplomacy":
             case "collect":
@@ -136,7 +163,7 @@
     async function performAction(action, params = {}) {
         const result = await GameAPI.performAction(action, params);
         if (result.success === false) {
-            alert(result.error || "Toiminto epäonnistui.");
+            UI.showStatusMessage(result.error || "Toiminto epäonnistui.");
         }
         await refreshState();
     }
@@ -148,7 +175,15 @@
         gameState = state;
 
         UI.updateHeader(state);
+        UI.updatePhaseBar(state.phase);
         UI.renderActions(state.allowed_actions, handleAction);
+        UI.renderFactionAbility(state.player_faction);
+
+        // Phase transition banner
+        if (lastPhase !== null && lastPhase !== state.phase) {
+            UI.showPhaseBanner(state.phase_label);
+        }
+        lastPhase = state.phase;
 
         if (state.events) {
             document.getElementById("event-log").innerHTML = "";
@@ -159,7 +194,11 @@
 
         if (state.victory_check && state.victory_check.game_over) {
             setTimeout(() => {
-                UI.showVictory(state.victory_check.winner, state.player_faction.id);
+                UI.showVictory(
+                    state.victory_check.winner,
+                    state.player_faction.id,
+                    state.victory_check.type,
+                );
             }, 500);
         }
     }

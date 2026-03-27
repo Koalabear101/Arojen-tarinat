@@ -149,6 +149,16 @@ class TestFaction(unittest.TestCase):
         self.assertIn("name", d)
         self.assertIn("color", d)
 
+    def test_faction_identity_fields(self):
+        for f in FACTIONS:
+            self.assertTrue(len(f.passive_name) > 0)
+            self.assertTrue(len(f.passive_description) > 0)
+            self.assertTrue(len(f.playstyle) > 0)
+            self.assertTrue(len(f.signature_unit) > 0)
+            d = f.to_dict()
+            self.assertIn("passive_name", d)
+            self.assertIn("playstyle", d)
+
 
 class TestGameState(unittest.TestCase):
     def test_initial_phase(self):
