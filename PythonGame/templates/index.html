@@ -23,6 +23,11 @@
 
     <div id="game" class="container" style="display: none;">
         <h2>Peli - Heimo: <span id="player-faction"></span></h2>
+        
+        <div id="phase-display" class="phase-display card-phase">
+            🎴 KORTIN VAIHE - Pelaa kortteja (enintään 3)
+        </div>
+        
         <div id="board"></div>
         
         <div id="cards-section">
@@ -31,9 +36,9 @@
         </div>
         
         <div id="controls">
-            <button id="attack-btn">Hyökkää</button>
-            <button id="diplomacy-btn">Diplomatia</button>
-            <button id="end-turn-btn">Päätä vuoro</button>
+            <button id="attack-btn">Hyökkää (lopeta kortin vaihe)</button>
+            <button id="next-phase-btn" style="display: none;">Seuraava vaihe</button>
+            <button id="end-turn-btn" style="display: none;">Päätä vuoro</button>
         </div>
         <div id="messages"></div>
         <p>Vuoro: <span id="turn">0</span></p>

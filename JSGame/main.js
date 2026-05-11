@@ -10,7 +10,8 @@ const { CardSystem } = require('./CardSystem');
 let gameState = {
     gameOver: false,
     winner: null,
-    message: null
+    message: null,
+    phase: 'CARD_PHASE'  // CARD_PHASE, ENEMY_PHASE
 };
 
 function checkGameStatus(board) {
@@ -69,7 +70,8 @@ function main() {
 
     console.log("Pelilauta alustettu. Aloitusyksiköt sijoitettu.\n");
     console.log(`Kädessä olevia kortteja: ${cardSystem.getHand().length}`);
-    console.log(`Kortteja voi pelata vuorossa: ${cardSystem.getCardsRemaining()}`);
+    console.log(`Kortteja voi pelata vuorossa: ${cardSystem.getCardsRemaining()}\n`);
+    console.log(`Nykyinen vaihe: ${gameState.phase}\n`);
 
     // Simuloi yksinkertainen kierros (Node.js:ssa, käytä readlinea interaktiivisuuteen)
     console.log("Nykyinen lauta:");
@@ -82,7 +84,8 @@ function main() {
         console.log(row.join(' '));
     }
 
-    // Yksinkertainen hyökkäys demo
+    // Yksinkertainen hyökkäys demo (CARD_PHASE:ssa)
+    console.log("--- CARD_PHASE: Kortti-vaihe ---");
     const attacker = board.board[0][0];
     const defender = board.board[9][9];
     if (attacker && defender) {
@@ -97,9 +100,9 @@ function main() {
                 board.board[9][9] = null;
                 checkGameStatus(board);
             }
-            console.log(`Jäljellä: ${cardSystem.getCardsRemaining()} korttia tässä vuorossa`);
+            console.log(`Jäljellä: ${cardSystem.getCardsRemaining()} korttia tässä vaiheessa`);
         } else {
-            console.log("Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)");
+            console.log("Et voi pelata enää kortteja tässä vaihessa! (max 3 korttia)");
         }
     }
 
@@ -109,21 +112,10 @@ function main() {
         return;
     }
 
-    // Diplomacy demo
-    if (cardSystem.canPlayCard()) {
-        let relation = diplomacy.getRelation(playerFaction.name, 'Vihollinen');
-        console.log(`Nykyinen suhde viholliseen: ${relation}`);
-        diplomacy.setRelation(playerFaction.name, 'Vihollinen', relation + 10);
-        cardSystem.playCard(3); // Simuloitu diplomaattinen kortti (ID 3)
-        console.log("Diplomatia paransi suhteita!");
-        console.log(`Jäljellä: ${cardSystem.getCardsRemaining()} korttia tässä vuorossa`);
-    } else {
-        console.log("Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)");
-    }
-
-    // Vuoron lopetus
-    cardSystem.endTurn();
-    console.log("\nVuoro päättyi. Vihollinen hyökkää takaisin!");
+    // Siirry ENEMY_PHASE:hen
+    gameState.phase = 'ENEMY_PHASE';
+    console.log(`\n--- ENEMY_PHASE: Vihollisen vaihe ---`);
+    console.log("Vihollinen hyökkää takaisin!");
     
     // Vihollisen counter-hyökkäys
     const enemyAttacker = board.board[9][9];
@@ -144,7 +136,11 @@ function main() {
         console.log(`\n*** ${gameState.message} ***`);
     }
 
-    console.log(`\nJäljellä seuraavalla vuorolla: ${cardSystem.getCardsRemaining()} korttia`);
+    // Palaa CARD_PHASE:hen seuraavalle vuorolle
+    gameState.phase = 'CARD_PHASE';
+    cardSystem.endTurn();
+    console.log(`\n--- Uusi vuoro alkaa (CARD_PHASE) ---`);
+    console.log(`Jäljellä seuraavalla vuorolla: ${cardSystem.getCardsRemaining()} korttia`);
 
     console.log("Peli päättyi. Kiitos pelaamisesta!");
 }

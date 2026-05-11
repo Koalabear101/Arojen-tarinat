@@ -148,3 +148,24 @@ button:hover {
     font-size: 1.2em;
     background-color: #2196F3;
 }
+
+.phase-display {
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.phase-display.card-phase {
+    background-color: #e8f5e9;
+    border: 2px solid #4CAF50;
+    color: #2e7d32;
+}
+
+.phase-display.enemy-phase {
+    background-color: #ffebee;
+    border: 2px solid #f44336;
+    color: #c62828;
+}

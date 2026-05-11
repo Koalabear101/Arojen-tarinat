@@ -20,7 +20,8 @@ game_state = {
     'turn': 0,
     'game_over': False,
     'winner': None,
-    'message': None
+    'message': None,
+    'phase': 'CARD_PHASE'  # CARD_PHASE, ENEMY_PHASE
 }
 
 def check_game_status():
@@ -72,6 +73,7 @@ def start_game():
     game_state['game_over'] = False
     game_state['winner'] = None
     game_state['message'] = None
+    game_state['phase'] = 'CARD_PHASE'
 
     return jsonify({'status': 'started', 'faction': player_faction['name']})
 
@@ -101,7 +103,8 @@ def get_board():
         'hand': game_state['card_system'].get_hand(),
         'game_over': game_state['game_over'],
         'winner': game_state['winner'],
-        'message': game_state['message']
+        'message': game_state['message'],
+        'phase': game_state['phase']
     })
 
 @app.route('/attack', methods=['POST'])
@@ -118,12 +121,10 @@ def attack():
             'winner': game_state['winner']
         })
 
-    # Tarkista että kortteja voi vielä pelata
-    if not game_state['card_system'].can_play_card():
+    # Attack päättää CARD_PHASE:n ja siirtyy ENEMY_PHASE:hen
+    if game_state['phase'] != 'CARD_PHASE':
         return jsonify({
-            'message': 'Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)',
-            'error': True,
-            'turn': game_state['turn']
+            'error': f'Hyökkäys on mahdollinen vain CARD_PHASE:n jälkeen. Nykyinen vaihe: {game_state["phase"]}'
         })
 
     # Yksinkertainen hyökkäys (voit laajentaa koordinaateilla)
@@ -137,16 +138,16 @@ def attack():
             message += " Vihollinen tuhottu!"
             game_state['board'].board[9][9] = None
             check_game_status()
-        # Merkitse että kortti pelattiin
-        game_state['card_system'].cards_played_this_turn += 1
     else:
         message = "Ei kelvollisia yksiköitä hyökkäykseen."
 
-    cards_remaining = game_state['card_system'].get_cards_remaining()
+    # Siirry ENEMY_PHASE:hen
+    game_state['phase'] = 'ENEMY_PHASE'
+    
     response = {
         'message': message,
         'turn': game_state['turn'],
-        'cards_remaining': cards_remaining,
+        'phase': game_state['phase'],
         'game_over': game_state['game_over'],
         'winner': game_state['winner']
     }
@@ -161,9 +162,17 @@ def diplomacy_action():
     if not game_state['diplomacy']:
         return jsonify({'error': 'Game not started'})
 
+    # Diplomacy pitäisi tehdä CARD_PHASE:ssa pelaamalla diplomaattinen kortti
+    if game_state['phase'] != 'CARD_PHASE':
+        return jsonify({
+            'error': f'Diplomatiaa voi tehdä vain CARD_PHASE:ssa pelaamalla kortti. Nykyinen vaihe: {game_state["phase"]}'
+        })
+
     # Tarkista että kortteja voi vielä pelata
     if not game_state['card_system'].can_play_card():
-        return jsonify({'message': 'Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)', 'error': True})
+        return jsonify({
+            'error': 'Et voi pelata enää kortteja tässä vaihessa! (max 3 korttia)'
+        })
 
     relation = game_state['diplomacy'].get_relation(game_state['player_faction']['name'], 'Vihollinen')
     game_state['diplomacy'].set_relation(game_state['player_faction']['name'], 'Vihollinen', relation + 10)
@@ -172,18 +181,30 @@ def diplomacy_action():
     game_state['card_system'].cards_played_this_turn += 1
 
     cards_remaining = game_state['card_system'].get_cards_remaining()
-    return jsonify({'message': message, 'cards_remaining': cards_remaining})
+    return jsonify({
+        'message': message,
+        'cards_remaining': cards_remaining
+    })
 
 @app.route('/play_card', methods=['POST'])
 def play_card():
     if not game_state['card_system']:
         return jsonify({'error': 'Game not started'})
 
+    # Tarkista että olemme CARD_PHASE:ssa
+    if game_state['phase'] != 'CARD_PHASE':
+        return jsonify({
+            'error': f'Kortteja voi pelata vain CARD_PHASE:ssa. Nykyinen vaihe: {game_state["phase"]}'
+        })
+
     data = request.get_json()
     card_id = data.get('card_id')
     
     if not game_state['card_system'].can_play_card():
-        return jsonify({'error': 'Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)', 'cards_remaining': 0})
+        return jsonify({
+            'error': 'Et voi pelata enää kortteja tässä vaihessa! (max 3 korttia)',
+            'cards_remaining': 0
+        })
 
     played_card = game_state['card_system'].play_card(card_id)
     
@@ -212,32 +233,65 @@ def end_turn():
             'winner': game_state['winner']
         })
 
+    # End_turn voidaan kutsua vain ENEMY_PHASE:sta
+    if game_state['phase'] != 'ENEMY_PHASE':
+        return jsonify({
+            'error': f'Vuoroa voidaan päättää vain ENEMY_PHASE:sta. Nykyinen vaihe: {game_state["phase"]}'
+        })
+
+    # Nollaa kortti-pelinä seuraavaa vuoroa varten
     game_state['card_system'].end_turn()
     game_state['turn'] += 1
     
-    # Vihollinen hyökkää takaisin
-    attacker = game_state['board'].board[9][9]
-    defender = game_state['board'].board[0][0]
-    counter_message = ""
-    
-    if attacker and defender:
-        damage = calculate_damage(attacker, defender)
-        defender['defense'] -= damage
-        counter_message = f"Vihollinen hyökkäsi takaisin ja aiheutti {damage} vahinkoa!"
-        if defender['defense'] <= 0:
-            counter_message += " Sinun yksikkösi tuhottu!"
-            game_state['board'].board[0][0] = None
-            check_game_status()
+    # Siirry takaisin CARD_PHASE:hen seuraavalle vuorolle
+    game_state['phase'] = 'CARD_PHASE'
     
     return jsonify({
         'success': True,
         'turn': game_state['turn'],
         'cards_remaining': game_state['card_system'].get_cards_remaining(),
-        'counter_message': counter_message,
+        'phase': game_state['phase'],
         'game_over': game_state['game_over'],
         'winner': game_state['winner'],
         'end_message': game_state['message'] if game_state['game_over'] else None
     })
+
+@app.route('/next_phase', methods=['POST'])
+def next_phase():
+    """Siirry seuraavaan vaiheeseen."""
+    if game_state['game_over']:
+        return jsonify({
+            'error': 'Peli on päättynyt',
+            'game_over': True
+        })
+
+    if game_state['phase'] == 'CARD_PHASE':
+        # Siirry ENEMY_PHASE:hen - vihollinen hyökkää takaisin
+        attacker = game_state['board'].board[9][9]
+        defender = game_state['board'].board[0][0]
+        counter_message = ""
+        
+        if attacker and defender:
+            damage = calculate_damage(attacker, defender)
+            defender['defense'] -= damage
+            counter_message = f"Vihollinen hyökkäsi takaisin ja aiheutti {damage} vahinkoa!"
+            if defender['defense'] <= 0:
+                counter_message += " Sinun yksikkösi tuhottu!"
+                game_state['board'].board[0][0] = None
+                check_game_status()
+        
+        game_state['phase'] = 'ENEMY_PHASE'
+        return jsonify({
+            'success': True,
+            'phase': game_state['phase'],
+            'counter_message': counter_message,
+            'game_over': game_state['game_over'],
+            'winner': game_state['winner'],
+            'end_message': game_state['message'] if game_state['game_over'] else None
+        })
+    
+    return jsonify({'error': f'Ei voida siirtyä vaiheesta {game_state["phase"]}'})
+
 
 if __name__ == '__main__':
     app.run(debug=True)

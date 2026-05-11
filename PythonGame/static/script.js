@@ -47,6 +47,9 @@ function updateBoard() {
         document.getElementById('turn').textContent = data.turn;
         document.getElementById('cards-remaining').textContent = data.cards_remaining;
         
+        // Päivitä vaiheen näyttö
+        updatePhaseDisplay(data.phase);
+        
         // Päivitä korttien näyttö
         updateHand(data.hand);
         
@@ -56,6 +59,44 @@ function updateBoard() {
             disableGameControls();
         }
     });
+}
+
+function updatePhaseDisplay(phase) {
+    const phaseDiv = document.getElementById('phase-display');
+    if (!phaseDiv) return;
+    
+    let phaseText = '';
+    let phaseClass = '';
+    
+    if (phase === 'CARD_PHASE') {
+        phaseText = '🎴 KORTIN VAIHE - Pelaa kortteja (enintään 3)';
+        phaseClass = 'card-phase';
+    } else if (phase === 'ENEMY_PHASE') {
+        phaseText = '⚔️ VIHOLLISEN VAIHE - Klikkaa "Seuraava vaihe" jatkaaksesi';
+        phaseClass = 'enemy-phase';
+    }
+    
+    phaseDiv.textContent = phaseText;
+    phaseDiv.className = `phase-display ${phaseClass}`;
+    
+    // Päivitä napeista saatavuus
+    updateButtonStates(phase);
+}
+
+function updateButtonStates(phase) {
+    const attackBtn = document.getElementById('attack-btn');
+    const nextPhaseBtn = document.getElementById('next-phase-btn');
+    const endTurnBtn = document.getElementById('end-turn-btn');
+    
+    if (phase === 'CARD_PHASE') {
+        if (attackBtn) attackBtn.disabled = false;
+        if (nextPhaseBtn) nextPhaseBtn.style.display = 'none';
+        if (endTurnBtn) endTurnBtn.style.display = 'none';
+    } else if (phase === 'ENEMY_PHASE') {
+        if (attackBtn) attackBtn.disabled = true;
+        if (nextPhaseBtn) nextPhaseBtn.style.display = 'inline-block';
+        if (endTurnBtn) endTurnBtn.style.display = 'inline-block';
+    }
 }
 
 function showGameOverScreen(message, winner) {
@@ -122,10 +163,10 @@ document.getElementById('attack-btn').addEventListener('click', function() {
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            document.getElementById('messages').textContent = data.message;
+            document.getElementById('messages').textContent = data.error;
         } else {
             document.getElementById('messages').textContent = data.message;
-            document.getElementById('cards-remaining').textContent = data.cards_remaining;
+            updatePhaseDisplay(data.phase);
         }
         
         if (data.game_over) {
@@ -155,13 +196,12 @@ document.getElementById('end-turn-btn').addEventListener('click', function() {
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            document.getElementById('messages').textContent = data.message;
+            document.getElementById('messages').textContent = data.error;
         } else {
-            if (data.counter_message) {
-                document.getElementById('messages').textContent = data.counter_message;
-            }
+            document.getElementById('messages').textContent = 'Vuoro päättyi! Uusi käyttäjävuoro alkaa.';
             document.getElementById('turn').textContent = data.turn;
             document.getElementById('cards-remaining').textContent = data.cards_remaining;
+            updatePhaseDisplay(data.phase);
         }
         
         if (data.game_over && data.end_message) {
@@ -172,3 +212,34 @@ document.getElementById('end-turn-btn').addEventListener('click', function() {
         }
     });
 });
+
+// Lisää next-phase nappula kuuntelija
+const nextPhaseBtn = document.getElementById('next-phase-btn');
+if (nextPhaseBtn) {
+    nextPhaseBtn.addEventListener('click', function() {
+        fetch('/next_phase', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('messages').textContent = data.error;
+            } else {
+                let message = '';
+                if (data.counter_message) {
+                    message = data.counter_message;
+                }
+                if (data.game_over) {
+                    message += ' ' + data.end_message;
+                }
+                document.getElementById('messages').textContent = message || 'Vihollinen on toiminut.';
+                updatePhaseDisplay(data.phase);
+            }
+            
+            if (data.game_over && data.end_message) {
+                showGameOverScreen(data.end_message, data.winner);
+                disableGameControls();
+            } else {
+                updateBoard();
+            }
+        });
+    });
+}
