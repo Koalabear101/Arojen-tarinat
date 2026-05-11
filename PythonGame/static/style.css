@@ -67,3 +67,44 @@ button:hover {
     border: 1px solid #ffeaa7;
     border-radius: 4px;
 }
+
+#cards-section {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.card {
+    border: 2px solid #2196F3;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #e3f2fd;
+    min-width: 120px;
+    text-align: center;
+}
+
+.card-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.card-type {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.card button {
+    width: 100%;
+    padding: 5px;
+    font-size: 0.9em;
+}
