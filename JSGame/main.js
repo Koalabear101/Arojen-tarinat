@@ -6,6 +6,37 @@ const { calculateDamage } = require('./AdvancedCombatRules');
 const { DiplomacySystem } = require('./DiplomacySystem');
 const { CardSystem } = require('./CardSystem');
 
+// Game state
+let gameState = {
+    gameOver: false,
+    winner: null,
+    message: null
+};
+
+function checkGameStatus(board) {
+    // Tarkista pelin voitto/häviö-ehdot
+    const playerUnit = board.board[0][0];
+    const enemyUnit = board.board[9][9];
+    
+    // Tarkista voitto (vihollinen tuhottu)
+    if (!enemyUnit || enemyUnit.defense <= 0) {
+        gameState.gameOver = true;
+        gameState.winner = 'player';
+        gameState.message = 'Voitit! Vihollinen on tuhottu!';
+        return true;
+    }
+    
+    // Tarkista häviö (pelaajan yksikkö tuhottu)
+    if (!playerUnit || playerUnit.defense <= 0) {
+        gameState.gameOver = true;
+        gameState.winner = 'enemy';
+        gameState.message = 'Hävisit! Sinun yksikkösi oli tuhottu!';
+        return true;
+    }
+    
+    return false;
+}
+
 // Yksinkertainen factions data (voit importata jos tarvitset)
 const factions = [
     { name: "Mongoli-heimo", bonus: "Ratsuväen bonus", color: "amber" },
@@ -64,11 +95,18 @@ function main() {
             if (defender.defense <= 0) {
                 console.log("Vihollinen tuhottu!");
                 board.board[9][9] = null;
+                checkGameStatus(board);
             }
             console.log(`Jäljellä: ${cardSystem.getCardsRemaining()} korttia tässä vuorossa`);
         } else {
             console.log("Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)");
         }
+    }
+
+    if (gameState.gameOver) {
+        console.log(`\n*** ${gameState.message} ***`);
+        console.log("Peli päättyi. Kiitos pelaamisesta!");
+        return;
     }
 
     // Diplomacy demo
@@ -85,8 +123,28 @@ function main() {
 
     // Vuoron lopetus
     cardSystem.endTurn();
-    console.log("\nVuoro päättyi. Kaikki kortit nollattu uutta vuoroa varten.");
-    console.log(`Jäljellä seuraavalla vuorolla: ${cardSystem.getCardsRemaining()} korttia`);
+    console.log("\nVuoro päättyi. Vihollinen hyökkää takaisin!");
+    
+    // Vihollisen counter-hyökkäys
+    const enemyAttacker = board.board[9][9];
+    const playerDefender = board.board[0][0];
+    
+    if (enemyAttacker && playerDefender) {
+        const counterDamage = calculateDamage(enemyAttacker, playerDefender);
+        playerDefender.defense -= counterDamage;
+        console.log(`Vihollinen hyökkäsi takaisin ja aiheutti ${counterDamage} vahinkoa!`);
+        if (playerDefender.defense <= 0) {
+            console.log("Sinun yksikkösi tuhottu!");
+            board.board[0][0] = null;
+            checkGameStatus(board);
+        }
+    }
+
+    if (gameState.gameOver) {
+        console.log(`\n*** ${gameState.message} ***`);
+    }
+
+    console.log(`\nJäljellä seuraavalla vuorolla: ${cardSystem.getCardsRemaining()} korttia`);
 
     console.log("Peli päättyi. Kiitos pelaamisesta!");
 }

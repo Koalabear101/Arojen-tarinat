@@ -17,8 +17,35 @@ game_state = {
     'diplomacy': None,
     'card_system': None,
     'player_faction': None,
-    'turn': 0
+    'turn': 0,
+    'game_over': False,
+    'winner': None,
+    'message': None
 }
+
+def check_game_status():
+    """Tarkista pelin voitto/häviö-ehdot."""
+    if not game_state['board']:
+        return
+    
+    player_unit = game_state['board'].board[0][0]
+    enemy_unit = game_state['board'].board[9][9]
+    
+    # Tarkista voitto (vihollinen tuhottu)
+    if not enemy_unit or enemy_unit['defense'] <= 0:
+        game_state['game_over'] = True
+        game_state['winner'] = 'player'
+        game_state['message'] = 'Voitit! Vihollinen on tuhottu!'
+        return True
+    
+    # Tarkista häviö (pelaajan yksikkö tuhottu)
+    if not player_unit or player_unit['defense'] <= 0:
+        game_state['game_over'] = True
+        game_state['winner'] = 'enemy'
+        game_state['message'] = 'Hävisit! Sinun yksikkösi oli tuhottu!'
+        return True
+    
+    return False
 
 @app.route('/')
 def index():
@@ -42,6 +69,9 @@ def start_game():
     game_state['card_system'] = card_system
     game_state['player_faction'] = player_faction
     game_state['turn'] = 0
+    game_state['game_over'] = False
+    game_state['winner'] = None
+    game_state['message'] = None
 
     return jsonify({'status': 'started', 'faction': player_faction['name']})
 
@@ -49,6 +79,8 @@ def start_game():
 def get_board():
     if not game_state['board']:
         return jsonify({'error': 'Game not started'})
+
+    check_game_status()
 
     board_data = []
     for y in range(game_state['board'].height):
@@ -66,7 +98,10 @@ def get_board():
         'board': board_data, 
         'turn': game_state['turn'],
         'cards_remaining': cards_remaining,
-        'hand': game_state['card_system'].get_hand()
+        'hand': game_state['card_system'].get_hand(),
+        'game_over': game_state['game_over'],
+        'winner': game_state['winner'],
+        'message': game_state['message']
     })
 
 @app.route('/attack', methods=['POST'])
@@ -74,9 +109,22 @@ def attack():
     if not game_state['board']:
         return jsonify({'error': 'Game not started'})
 
+    # Tarkista pelin tila
+    if game_state['game_over']:
+        return jsonify({
+            'message': game_state['message'],
+            'error': True,
+            'game_over': True,
+            'winner': game_state['winner']
+        })
+
     # Tarkista että kortteja voi vielä pelata
     if not game_state['card_system'].can_play_card():
-        return jsonify({'message': 'Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)', 'error': True, 'turn': game_state['turn']})
+        return jsonify({
+            'message': 'Et voi pelata enää kortteja tässä vuorossa! (max 3 korttia)',
+            'error': True,
+            'turn': game_state['turn']
+        })
 
     # Yksinkertainen hyökkäys (voit laajentaa koordinaateilla)
     attacker = game_state['board'].board[0][0]
@@ -88,13 +136,25 @@ def attack():
         if defender['defense'] <= 0:
             message += " Vihollinen tuhottu!"
             game_state['board'].board[9][9] = None
+            check_game_status()
         # Merkitse että kortti pelattiin
         game_state['card_system'].cards_played_this_turn += 1
     else:
         message = "Ei kelvollisia yksiköitä hyökkäykseen."
 
     cards_remaining = game_state['card_system'].get_cards_remaining()
-    return jsonify({'message': message, 'turn': game_state['turn'], 'cards_remaining': cards_remaining})
+    response = {
+        'message': message,
+        'turn': game_state['turn'],
+        'cards_remaining': cards_remaining,
+        'game_over': game_state['game_over'],
+        'winner': game_state['winner']
+    }
+    
+    if game_state['game_over']:
+        response['end_message'] = game_state['message']
+    
+    return jsonify(response)
 
 @app.route('/diplomacy', methods=['POST'])
 def diplomacy_action():
@@ -143,13 +203,40 @@ def end_turn():
     if not game_state['card_system']:
         return jsonify({'error': 'Game not started'})
 
+    # Tarkista pelin tila
+    if game_state['game_over']:
+        return jsonify({
+            'message': game_state['message'],
+            'error': True,
+            'game_over': True,
+            'winner': game_state['winner']
+        })
+
     game_state['card_system'].end_turn()
     game_state['turn'] += 1
+    
+    # Vihollinen hyökkää takaisin
+    attacker = game_state['board'].board[9][9]
+    defender = game_state['board'].board[0][0]
+    counter_message = ""
+    
+    if attacker and defender:
+        damage = calculate_damage(attacker, defender)
+        defender['defense'] -= damage
+        counter_message = f"Vihollinen hyökkäsi takaisin ja aiheutti {damage} vahinkoa!"
+        if defender['defense'] <= 0:
+            counter_message += " Sinun yksikkösi tuhottu!"
+            game_state['board'].board[0][0] = None
+            check_game_status()
     
     return jsonify({
         'success': True,
         'turn': game_state['turn'],
-        'cards_remaining': game_state['card_system'].get_cards_remaining()
+        'cards_remaining': game_state['card_system'].get_cards_remaining(),
+        'counter_message': counter_message,
+        'game_over': game_state['game_over'],
+        'winner': game_state['winner'],
+        'end_message': game_state['message'] if game_state['game_over'] else None
     })
 
 if __name__ == '__main__':
