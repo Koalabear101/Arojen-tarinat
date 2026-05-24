@@ -72,6 +72,8 @@ const ads = [
     'Pysy mukana pelissä: uusi päivitys tuo lisää haasteita!'
 ];
 
+window.addEventListener('load', updateAdBanner);
+
 function updateAdBanner() {
     const banner = document.getElementById('ad-banner');
     if (!banner) return;
