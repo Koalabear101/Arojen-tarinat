@@ -53,12 +53,30 @@ function updateBoard() {
         // Päivitä korttien näyttö
         updateHand(data.hand);
         
+        // Päivitä mainosbanneri
+        updateAdBanner();
+        
         // Näytä voitto/häviö-viesti
         if (data.game_over) {
             showGameOverScreen(data.message, data.winner);
             disableGameControls();
         }
     });
+}
+
+const ads = [
+    'Pelaa nyt ja saa 50% enemmän voimia!',
+    'Tutustu voimakkaisiin korttipaketteihin ja voita taistelut helpommin!',
+    'Vahvista heimotasi tänään – uusi kampanja alkaa pian!',
+    'Käytä strategiaa ja ansaitse harvinaisia voimakortteja!',
+    'Pysy mukana pelissä: uusi päivitys tuo lisää haasteita!'
+];
+
+function updateAdBanner() {
+    const banner = document.getElementById('ad-banner');
+    if (!banner) return;
+    const randomIndex = Math.floor(Math.random() * ads.length);
+    banner.innerHTML = `<strong>Sponsoroitu viesti:</strong> ${ads[randomIndex]}`;
 }
 
 function updatePhaseDisplay(phase) {

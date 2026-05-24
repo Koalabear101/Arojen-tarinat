@@ -169,3 +169,24 @@ button:hover {
     border: 2px solid #f44336;
     color: #c62828;
 }
+
+#ad-container {
+    margin: 20px 0;
+}
+
+.ad-banner {
+    background: linear-gradient(135deg, #ffe082, #ffcc80);
+    border: 1px solid #ffb74d;
+    border-radius: 10px;
+    padding: 15px;
+    font-size: 0.95em;
+    color: #5d4037;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ad-banner strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1em;
+    color: #bf360c;
+}
